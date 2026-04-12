@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'screens/auth_gate.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -81,7 +81,7 @@ class EditorialManagerApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const HomeScreen(),
+      home: const AuthGate(),
     );
   }
 }

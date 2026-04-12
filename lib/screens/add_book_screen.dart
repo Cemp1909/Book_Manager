@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/book.dart';
+import '../theme/app_theme.dart';
 
 class AddBookScreen extends StatefulWidget {
-  const AddBookScreen({super.key});
+  final Book? book;
+  final String? initialIsbn;
+
+  const AddBookScreen({super.key, this.book, this.initialIsbn});
 
   @override
   State<AddBookScreen> createState() => _AddBookScreenState();
@@ -20,13 +24,35 @@ class _AddBookScreenState extends State<AddBookScreen> {
   final _genreController = TextEditingController();
   final _descriptionController = TextEditingController();
 
+  bool get _isEditing => widget.book != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final book = widget.book;
+    if (book != null) {
+      _titleController.text = book.title;
+      _authorController.text = book.author;
+      _isbnController.text = book.isbn;
+      _priceController.text = book.price.toString();
+      _stockController.text = book.stock.toString();
+      _genreController.text = book.genre;
+      _descriptionController.text = book.description;
+      return;
+    }
+
+    final initialIsbn = widget.initialIsbn?.trim();
+    if (initialIsbn != null) {
+      _isbnController.text = initialIsbn;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Agregar Libro'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
+        title: Text(_isEditing ? 'Editar libro' : 'Agregar libro'),
       ),
       body: Form(
         key: _formKey,
@@ -38,13 +64,13 @@ class _AddBookScreenState extends State<AddBookScreen> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple[100],
-                  borderRadius: BorderRadius.circular(40),
+                  color: AppColors.teal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.book,
+                child: Icon(
+                  _isEditing ? Icons.edit_note : Icons.menu_book,
                   size: 40,
-                  color: Colors.deepPurple,
+                  color: AppColors.teal,
                 ),
               ),
             ),
@@ -197,12 +223,11 @@ class _AddBookScreenState extends State<AddBookScreen> {
                   child: ElevatedButton(
                     onPressed: _guardarLibro,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
                       padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
-                    child: const Text(
-                      'Guardar',
-                      style: TextStyle(color: Colors.white),
+                    child: Text(
+                      _isEditing ? 'Actualizar' : 'Guardar',
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ),
                 ),
@@ -217,6 +242,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
   void _guardarLibro() {
     if (_formKey.currentState!.validate()) {
       final book = Book(
+        id: widget.book?.id,
         title: _titleController.text.trim(),
         author: _authorController.text.trim(),
         isbn: _isbnController.text.trim(),

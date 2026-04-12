@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../models/app_user.dart';
+import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'inventory_screen.dart';
 import 'combos_screen.dart';
@@ -7,7 +10,14 @@ import 'dispatches_screen.dart';
 import 'scanner_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final AppUser user;
+  final VoidCallback onLogout;
+
+  const HomeScreen({
+    super.key,
+    required this.user,
+    required this.onLogout,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -48,7 +58,19 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.person),
+            icon: CircleAvatar(
+              radius: 16,
+              backgroundColor: AppColors.teal,
+              child: Text(
+                widget.user.name.isNotEmpty
+                    ? widget.user.name[0].toUpperCase()
+                    : 'A',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
             onPressed: () {
               _showUserMenu(context);
             },
@@ -94,17 +116,35 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 40,
-              backgroundColor: Colors.blue,
-              child: Icon(Icons.person, size: 40, color: Colors.white),
+              backgroundColor: AppColors.teal,
+              child: Text(
+                widget.user.name.isNotEmpty
+                    ? widget.user.name[0].toUpperCase()
+                    : 'A',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ),
             const SizedBox(height: 10),
-            const Text(
-              'Administrador',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              widget.user.name,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const Text('admin@editorial.com'),
+            Text(widget.user.email),
+            const SizedBox(height: 4),
+            Chip(
+              label: Text(widget.user.role),
+              backgroundColor: AppColors.teal.withValues(alpha: 0.12),
+              labelStyle: const TextStyle(
+                color: AppColors.tealDark,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const Divider(height: 30),
             ListTile(
               leading: const Icon(Icons.qr_code_scanner),
@@ -132,11 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Cerrar sesión'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Funcionalidad en desarrollo')),
-                );
+                await AuthService.instance.logout();
+                if (!mounted) return;
+                widget.onLogout();
               },
             ),
           ],

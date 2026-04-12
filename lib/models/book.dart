@@ -32,6 +32,28 @@ class Book {
     };
   }
 
+  Book copyWith({
+    int? id,
+    String? title,
+    String? author,
+    String? isbn,
+    int? price,
+    int? stock,
+    String? genre,
+    String? description,
+  }) {
+    return Book(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      author: author ?? this.author,
+      isbn: isbn ?? this.isbn,
+      price: price ?? this.price,
+      stock: stock ?? this.stock,
+      genre: genre ?? this.genre,
+      description: description ?? this.description,
+    );
+  }
+
   factory Book.fromMap(Map<String, dynamic> map) {
     return Book(
       id: map['id'] as int?,
