@@ -136,8 +136,18 @@ class TemporaryDataService extends ChangeNotifier {
       status: OrderStatus.pending,
       deliveryAddress: 'Cra. 12 #45-20',
       items: [
-        OrderItem(book: _sampleBooks[0], quantity: 18),
-        OrderItem(book: _sampleBooks[1], quantity: 8),
+        OrderItem(
+          title: _sampleBooks[0].title,
+          subtitle: _sampleBooks[0].author,
+          unitPrice: _sampleBooks[0].price,
+          quantity: 18,
+        ),
+        OrderItem(
+          title: _sampleBooks[1].title,
+          subtitle: _sampleBooks[1].author,
+          unitPrice: _sampleBooks[1].price,
+          quantity: 8,
+        ),
       ],
     ),
     AppOrder(
@@ -147,8 +157,19 @@ class TemporaryDataService extends ChangeNotifier {
       status: OrderStatus.ready,
       deliveryAddress: 'Av. Principal #10-35',
       items: [
-        OrderItem(book: _sampleBooks[2], quantity: 12),
-        OrderItem(book: _sampleBooks[1], quantity: 6),
+        const OrderItem(
+          title: 'Combo literatura clasica',
+          subtitle: '3 libros con descuento',
+          unitPrice: 92000,
+          quantity: 4,
+          isCombo: true,
+        ),
+        OrderItem(
+          title: _sampleBooks[1].title,
+          subtitle: _sampleBooks[1].author,
+          unitPrice: _sampleBooks[1].price,
+          quantity: 6,
+        ),
       ],
     ),
     AppOrder(
@@ -158,7 +179,12 @@ class TemporaryDataService extends ChangeNotifier {
       status: OrderStatus.dispatched,
       deliveryAddress: 'Calle 80 #22-15',
       items: [
-        OrderItem(book: _sampleBooks[0], quantity: 20),
+        OrderItem(
+          title: _sampleBooks[0].title,
+          subtitle: _sampleBooks[0].author,
+          unitPrice: _sampleBooks[0].price,
+          quantity: 20,
+        ),
       ],
     ),
   ];

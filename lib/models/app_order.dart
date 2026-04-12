@@ -1,5 +1,3 @@
-import 'book.dart';
-
 enum OrderStatus {
   pending,
   preparing,
@@ -23,15 +21,21 @@ extension OrderStatusText on OrderStatus {
 }
 
 class OrderItem {
-  final Book book;
+  final String title;
+  final String subtitle;
+  final int unitPrice;
   final int quantity;
+  final bool isCombo;
 
   const OrderItem({
-    required this.book,
+    required this.title,
+    required this.subtitle,
+    required this.unitPrice,
     required this.quantity,
+    this.isCombo = false,
   });
 
-  int get total => book.price * quantity;
+  int get total => unitPrice * quantity;
 }
 
 class AppOrder {

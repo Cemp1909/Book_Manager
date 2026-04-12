@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_order.dart';
 import '../models/book.dart';
+import '../models/book_combo.dart';
 import '../services/database_service.dart';
 import '../services/temporary_data_service.dart';
 import '../theme/app_theme.dart';
@@ -114,7 +115,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     final customerController = TextEditingController();
     final addressController = TextEditingController();
-    Book selectedBook = _books.first;
+    final combos = _dataService.buildCombos(_books);
+    final products = [
+      for (final book in _books) _OrderProduct.book(book),
+      for (final combo in combos) _OrderProduct.combo(combo),
+    ];
+    final draftItems = <OrderItem>[];
+    var selectedProduct = products.first;
     int quantity = 1;
 
     final created = await showModalBottomSheet<AppOrder>(
@@ -126,18 +133,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final total = selectedBook.price * quantity;
+            final draftTotal = draftItems.fold<int>(
+              0,
+              (sum, item) => sum + item.total,
+            );
+            final lineTotal = selectedProduct.unitPrice * quantity;
 
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                20,
-                20,
-                MediaQuery.viewInsetsOf(context).bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+            return DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.86,
+              minChildSize: 0.55,
+              maxChildSize: 0.94,
+              builder: (context, scrollController) => ListView(
+                controller: scrollController,
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  MediaQuery.viewInsetsOf(context).bottom + 20,
+                ),
                 children: [
                   const Text(
                     'Nuevo pedido',
@@ -160,27 +174,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<Book>(
-                    initialValue: selectedBook,
+                  DropdownButtonFormField<_OrderProduct>(
+                    initialValue: selectedProduct,
                     decoration: const InputDecoration(
-                      labelText: 'Libro',
-                      prefixIcon: Icon(Icons.menu_book_outlined),
+                      labelText: 'Libro o combo',
+                      prefixIcon: Icon(Icons.inventory_2_outlined),
                     ),
-                    items: _books
+                    items: products
                         .map(
-                          (book) => DropdownMenuItem(
-                            value: book,
+                          (product) => DropdownMenuItem(
+                            value: product,
                             child: Text(
-                              book.title,
+                              product.label,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         )
                         .toList(),
-                    onChanged: (book) {
-                      if (book == null) return;
-                      setSheetState(() => selectedBook = book);
+                    onChanged: (product) {
+                      if (product == null) return;
+                      setSheetState(() => selectedProduct = product);
                     },
                   ),
                   const SizedBox(height: 12),
@@ -210,8 +224,74 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Linea: ${_money(lineTotal)}',
+                          style: const TextStyle(
+                            color: AppColors.tealDark,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setSheetState(() {
+                            draftItems.add(
+                              OrderItem(
+                                title: selectedProduct.title,
+                                subtitle: selectedProduct.subtitle,
+                                unitPrice: selectedProduct.unitPrice,
+                                quantity: quantity,
+                                isCombo: selectedProduct.isCombo,
+                              ),
+                            );
+                            quantity = 1;
+                          });
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Agregar'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Carrito',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 8),
+                  if (draftItems.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.canvas,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Text(
+                        'Agrega uno o varios libros, combos, o mezcla ambos.',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  else
+                    for (var index = 0; index < draftItems.length; index++)
+                      _DraftOrderItem(
+                        item: draftItems[index],
+                        money: _money,
+                        onRemove: () {
+                          setSheetState(() {
+                            draftItems.removeAt(index);
+                          });
+                        },
+                      ),
+                  const SizedBox(height: 12),
                   Text(
-                    'Total: ${_money(total)}',
+                    'Total pedido: ${_money(draftTotal)}',
                     style: const TextStyle(
                       color: AppColors.tealDark,
                       fontSize: 20,
@@ -223,6 +303,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     onPressed: () {
                       final customer = customerController.text.trim();
                       if (customer.isEmpty) return;
+                      if (draftItems.isEmpty) return;
 
                       Navigator.pop(
                         context,
@@ -234,13 +315,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           deliveryAddress: addressController.text.trim().isEmpty
                               ? 'Pendiente por confirmar'
                               : addressController.text.trim(),
-                          items: [
-                            OrderItem(book: selectedBook, quantity: quantity),
-                          ],
+                          items: List.unmodifiable(draftItems),
                         ),
                       );
                     },
-                    child: const Text('Guardar pedido'),
+                    child: const Text('Guardar pedido completo'),
                   ),
                 ],
               ),
@@ -281,8 +360,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
           for (final item in order.items)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(item.book.title),
-              subtitle: Text('${item.quantity} x ${_money(item.book.price)}'),
+              leading: Icon(
+                item.isCombo ? Icons.grid_view : Icons.menu_book_outlined,
+              ),
+              title: Text(item.title),
+              subtitle: Text(
+                '${item.quantity} x ${_money(item.unitPrice)} - ${item.subtitle}',
+              ),
               trailing: Text(
                 _money(item.total),
                 style: const TextStyle(fontWeight: FontWeight.w900),
@@ -395,6 +479,103 @@ class _OrderCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _OrderProduct {
+  final String title;
+  final String subtitle;
+  final int unitPrice;
+  final bool isCombo;
+
+  const _OrderProduct({
+    required this.title,
+    required this.subtitle,
+    required this.unitPrice,
+    required this.isCombo,
+  });
+
+  factory _OrderProduct.book(Book book) {
+    return _OrderProduct(
+      title: book.title,
+      subtitle: book.author,
+      unitPrice: book.price,
+      isCombo: false,
+    );
+  }
+
+  factory _OrderProduct.combo(BookCombo combo) {
+    return _OrderProduct(
+      title: combo.name,
+      subtitle: '${combo.books.length} libros - ${combo.discountPercent}% off',
+      unitPrice: combo.total,
+      isCombo: true,
+    );
+  }
+
+  String get label => isCombo ? 'Combo: $title' : 'Libro: $title';
+}
+
+class _DraftOrderItem extends StatelessWidget {
+  final OrderItem item;
+  final String Function(int value) money;
+  final VoidCallback onRemove;
+
+  const _DraftOrderItem({
+    required this.item,
+    required this.money,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            item.isCombo ? Icons.grid_view : Icons.menu_book_outlined,
+            color: item.isCombo ? AppColors.violet : AppColors.teal,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  '${item.quantity} x ${money(item.unitPrice)}',
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            money(item.total),
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+          IconButton(
+            onPressed: onRemove,
+            icon: const Icon(Icons.close),
+            tooltip: 'Quitar',
+          ),
+        ],
       ),
     );
   }
