@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_order.dart';
 import '../services/temporary_data_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/order_detail_sheet.dart';
 import '../widgets/quick_action.dart';
 import '../widgets/summary_card.dart';
 
@@ -34,7 +35,7 @@ class DashboardScreen extends StatelessWidget {
             children: [
               _buildSummaryGrid(context, dataService),
               const SizedBox(height: 18),
-              _buildAlerts(dataService),
+              _buildAlerts(context, dataService),
               const SizedBox(height: 24),
               const Text(
                 'Acciones rapidas',
@@ -56,7 +57,14 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               for (final order in orders.take(3)) ...[
-                _RecentOrderTile(order: order),
+                _RecentOrderTile(
+                  order: order,
+                  onTap: () => showOrderDetailSheet(
+                    context: context,
+                    order: order,
+                    currency: dataService.settings.currencySymbol,
+                  ),
+                ),
                 const SizedBox(height: 10),
               ],
             ],
@@ -76,7 +84,7 @@ class DashboardScreen extends StatelessWidget {
         value: dataService.todayOrders.toString(),
         icon: Icons.shopping_cart,
         color: AppColors.teal,
-        onTap: onNewOrder,
+        onTap: () => _showPendingOrders(context, dataService),
       ),
       SummaryCard(
         title: 'Despachos',
@@ -119,31 +127,38 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAlerts(TemporaryDataService dataService) {
+  Widget _buildAlerts(BuildContext context, TemporaryDataService dataService) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppColors.amber.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () => _showPendingOrders(context, dataService),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.amber.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.notifications_active,
+                  color: AppColors.amber,
+                ),
               ),
-              child: const Icon(Icons.notifications_active,
-                  color: AppColors.amber),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '${dataService.pendingOrders} pedidos pendientes por mover. '
-                'Stock bajo empieza en ${dataService.settings.lowStockLimit}.',
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '${dataService.pendingOrders} pedidos pendientes por mover. '
+                  'Toca para revisar estado e informacion.',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
-            ),
-          ],
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
+          ),
         ),
       ),
     );
@@ -205,6 +220,70 @@ class DashboardScreen extends StatelessWidget {
       return '$currency${(value / 1000).toStringAsFixed(1)}K';
     }
     return '$currency$value';
+  }
+
+  void _showPendingOrders(
+    BuildContext context,
+    TemporaryDataService dataService,
+  ) {
+    final rootContext = context;
+    final pendingOrders = dataService.orders
+        .where((order) => order.status != OrderStatus.dispatched)
+        .toList();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.66,
+        minChildSize: 0.42,
+        maxChildSize: 0.9,
+        builder: (listContext, scrollController) => ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(20),
+          children: [
+            const Text(
+              'Pedidos pendientes',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Selecciona un pedido para ver toda la informacion.',
+              style: TextStyle(color: AppColors.muted),
+            ),
+            const SizedBox(height: 16),
+            if (pendingOrders.isEmpty)
+              const Text(
+                'No hay pedidos pendientes por ahora.',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else
+              for (final order in pendingOrders) ...[
+                _PendingOrderRow(
+                  order: order,
+                  currency: dataService.settings.currencySymbol,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    showOrderDetailSheet(
+                      context: rootContext,
+                      order: order,
+                      currency: dataService.settings.currencySymbol,
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -274,8 +353,9 @@ class _MiniBars extends StatelessWidget {
 
 class _RecentOrderTile extends StatelessWidget {
   final AppOrder order;
+  final VoidCallback onTap;
 
-  const _RecentOrderTile({required this.order});
+  const _RecentOrderTile({required this.order, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -287,63 +367,146 @@ class _RecentOrderTile extends StatelessWidget {
     };
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.teal.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.teal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.shopping_cart, color: AppColors.teal),
               ),
-              child: const Icon(Icons.shopping_cart, color: AppColors.teal),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Pedido #${order.id}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pedido #${order.id}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    order.customer,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(height: 4),
+                    Text(
+                      order.customer,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                order.status.label,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  ],
                 ),
               ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  order.status.label,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingOrderRow extends StatelessWidget {
+  final AppOrder order;
+  final String currency;
+  final VoidCallback onTap;
+
+  const _PendingOrderRow({
+    required this.order,
+    required this.currency,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = switch (order.status) {
+      OrderStatus.pending => AppColors.amber,
+      OrderStatus.preparing => AppColors.teal,
+      OrderStatus.ready => AppColors.leaf,
+      OrderStatus.dispatched => AppColors.muted,
+    };
+
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              margin: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.receipt_long, color: statusColor),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pedido #${order.id}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    Text(
+                      order.customer,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AppColors.muted),
+                    ),
+                    Text(
+                      '${order.status.label} - $currency${order.total}',
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: Icon(Icons.chevron_right, color: AppColors.muted),
             ),
           ],
         ),

@@ -6,6 +6,7 @@ import '../models/book_combo.dart';
 import '../services/database_service.dart';
 import '../services/temporary_data_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/order_detail_sheet.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -49,7 +50,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
               _OrderCard(
                 order: order,
                 currency: _dataService.settings.currencySymbol,
-                onTap: () => _showOrderDetail(order),
+                onTap: () => showOrderDetailSheet(
+                  context: context,
+                  order: order,
+                  currency: _dataService.settings.currencySymbol,
+                ),
                 onAdvance: () => _advanceOrder(order),
               ),
               const SizedBox(height: 12),
@@ -336,50 +341,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     _dataService.addOrder(created);
     _message('Pedido creado para ${created.customer}');
-  }
-
-  void _showOrderDetail(AppOrder order) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-      ),
-      builder: (context) => ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text(
-            'Pedido #${order.id}',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 8),
-          Text(order.customer, style: const TextStyle(color: AppColors.muted)),
-          Text(order.deliveryAddress),
-          const Divider(height: 28),
-          for (final item in order.items)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                item.isCombo ? Icons.grid_view : Icons.menu_book_outlined,
-              ),
-              title: Text(item.title),
-              subtitle: Text(
-                '${item.quantity} x ${_money(item.unitPrice)} - ${item.subtitle}',
-              ),
-              trailing: Text(
-                _money(item.total),
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-          const Divider(height: 28),
-          Text(
-            'Total: ${_money(order.total)}',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-        ],
-      ),
-    );
   }
 
   void _advanceOrder(AppOrder order) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_order.dart';
 import '../services/temporary_data_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/order_detail_sheet.dart';
 
 class DispatchesScreen extends StatelessWidget {
   const DispatchesScreen({super.key});
@@ -55,6 +56,12 @@ class DispatchesScreen extends StatelessWidget {
               for (final order in dispatches) ...[
                 _DispatchCard(
                   order: order,
+                  currency: dataService.settings.currencySymbol,
+                  onTap: () => showOrderDetailSheet(
+                    context: context,
+                    order: order,
+                    currency: dataService.settings.currencySymbol,
+                  ),
                   onDispatch: () {
                     dataService.updateOrderStatus(
                       order.id,
@@ -78,10 +85,14 @@ class DispatchesScreen extends StatelessWidget {
 
 class _DispatchCard extends StatelessWidget {
   final AppOrder order;
+  final String currency;
+  final VoidCallback onTap;
   final VoidCallback onDispatch;
 
   const _DispatchCard({
     required this.order,
+    required this.currency,
+    required this.onTap,
     required this.onDispatch,
   });
 
@@ -90,55 +101,61 @@ class _DispatchCard extends StatelessWidget {
     final dispatched = order.status == OrderStatus.dispatched;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.leaf.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.leaf.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  dispatched ? Icons.check_circle : Icons.local_shipping,
+                  color: dispatched ? AppColors.leaf : AppColors.teal,
+                ),
               ),
-              child: Icon(
-                dispatched ? Icons.check_circle : Icons.local_shipping,
-                color: dispatched ? AppColors.leaf : AppColors.teal,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Pedido #${order.id}',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pedido #${order.id}',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    order.customer,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    order.deliveryAddress,
-                    style: const TextStyle(color: AppColors.muted),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: dispatched ? null : onDispatch,
-                    icon: Icon(dispatched ? Icons.done : Icons.send_outlined),
-                    label: Text(dispatched ? 'Despachado' : 'Marcar despacho'),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      order.customer,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${order.deliveryAddress} - $currency${order.total}',
+                      style: const TextStyle(color: AppColors.muted),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: dispatched ? null : onDispatch,
+                      icon: Icon(dispatched ? Icons.done : Icons.send_outlined),
+                      label:
+                          Text(dispatched ? 'Despachado' : 'Marcar despacho'),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
+          ),
         ),
       ),
     );
