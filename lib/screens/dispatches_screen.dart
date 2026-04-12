@@ -1,39 +1,163 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_order.dart';
+import '../services/temporary_data_service.dart';
+import '../theme/app_theme.dart';
+
 class DispatchesScreen extends StatelessWidget {
   const DispatchesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.local_shipping, size: 80, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'Gestión de Despachos',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[600],
+    final dataService = TemporaryDataService.instance;
+
+    return AnimatedBuilder(
+      animation: dataService,
+      builder: (context, _) {
+        final dispatches = dataService.orders
+            .where(
+              (order) =>
+                  order.status == OrderStatus.ready ||
+                  order.status == OrderStatus.dispatched,
+            )
+            .toList();
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.local_shipping_outlined,
+                      color: AppColors.teal,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${dispatches.length} despachos en seguimiento',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Próximamente disponible',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Funcionalidad en desarrollo')),
-              );
-            },
-            child: const Text('Ver despachos'),
-          ),
-        ],
+            const SizedBox(height: 16),
+            if (dispatches.isEmpty)
+              const _EmptyDispatches()
+            else
+              for (final order in dispatches) ...[
+                _DispatchCard(
+                  order: order,
+                  onDispatch: () {
+                    dataService.updateOrderStatus(
+                      order.id,
+                      OrderStatus.dispatched,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Pedido #${order.id} despachado'),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DispatchCard extends StatelessWidget {
+  final AppOrder order;
+  final VoidCallback onDispatch;
+
+  const _DispatchCard({
+    required this.order,
+    required this.onDispatch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dispatched = order.status == OrderStatus.dispatched;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.leaf.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                dispatched ? Icons.check_circle : Icons.local_shipping,
+                color: dispatched ? AppColors.leaf : AppColors.teal,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pedido #${order.id}',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    order.customer,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    order.deliveryAddress,
+                    style: const TextStyle(color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: dispatched ? null : onDispatch,
+                    icon: Icon(dispatched ? Icons.done : Icons.send_outlined),
+                    label: Text(dispatched ? 'Despachado' : 'Marcar despacho'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyDispatches extends StatelessWidget {
+  const _EmptyDispatches();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: 80),
+      child: Center(
+        child: Text(
+          'Cuando un pedido este listo, aparecera aqui para despacharlo.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }

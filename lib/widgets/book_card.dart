@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/book.dart';
+import '../services/temporary_data_service.dart';
 
 class BookCard extends StatelessWidget {
   final Book book;
@@ -10,7 +11,8 @@ class BookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLowStock = book.stock <= 10 && book.stock > 0;
+    final lowStockLimit = TemporaryDataService.instance.settings.lowStockLimit;
+    final isLowStock = book.stock <= lowStockLimit && book.stock > 0;
     final isOutOfStock = book.stock == 0;
 
     Color stockColor;
@@ -26,6 +28,8 @@ class BookCard extends StatelessWidget {
       stockColor = Colors.green;
       stockText = 'Stock: ${book.stock}';
     }
+
+    final currency = TemporaryDataService.instance.settings.currencySymbol;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -76,7 +80,7 @@ class BookCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '\$${book.price}',
+                    '$currency${book.price}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,

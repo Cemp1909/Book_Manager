@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
+import '../services/temporary_data_service.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'inventory_screen.dart';
@@ -8,6 +9,7 @@ import 'combos_screen.dart';
 import 'orders_screen.dart';
 import 'dispatches_screen.dart';
 import 'scanner_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final AppUser user;
@@ -26,14 +28,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const InventoryScreen(),
-    const CombosScreen(),
-    const OrdersScreen(),
-    const DispatchesScreen(),
-  ];
-
   final List<String> _titles = [
     'Editorial Manager',
     'Inventario',
@@ -43,19 +37,32 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    TemporaryDataService.instance.loadSettings();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final screens = [
+      DashboardScreen(
+        onNewOrder: () => _selectTab(3),
+        onOpenDispatches: () => _selectTab(4),
+        onScan: _openScanner,
+      ),
+      const InventoryScreen(),
+      const CombosScreen(),
+      const OrdersScreen(),
+      const DispatchesScreen(),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ScannerScreen()),
-              );
-            },
+            onPressed: _openScanner,
           ),
           IconButton(
             icon: CircleAvatar(
@@ -77,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _screens[_selectedIndex],
+      body: screens[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
@@ -102,6 +109,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _selectTab(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  void _openScanner() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ScannerScreen()),
     );
   }
 
@@ -151,12 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Escanear código'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ScannerScreen(),
-                  ),
-                );
+                _openScanner();
               },
             ),
             ListTile(
@@ -164,8 +179,11 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Configuración'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Configuración en desarrollo')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
                 );
               },
             ),

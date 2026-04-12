@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/book.dart';
 import '../services/database_service.dart';
+import '../services/temporary_data_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/book_card.dart';
 import 'add_book_screen.dart';
@@ -17,6 +18,7 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   final _searchController = TextEditingController();
   final _databaseService = DatabaseService.instance;
+  final _dataService = TemporaryDataService.instance;
 
   String _searchQuery = '';
   String _filter = 'all';
@@ -41,8 +43,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
 
     if (_filter == 'lowStock') {
-      filtered =
-          filtered.where((book) => book.stock <= 10 && book.stock > 0).toList();
+      filtered = filtered
+          .where(
+            (book) =>
+                book.stock <= _dataService.settings.lowStockLimit &&
+                book.stock > 0,
+          )
+          .toList();
     } else if (_filter == 'outOfStock') {
       filtered = filtered.where((book) => book.stock == 0).toList();
     }
@@ -186,8 +193,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildInventorySummary() {
-    final lowStock =
-        _books.where((book) => book.stock <= 10 && book.stock > 0).length;
+    final lowStock = _books
+        .where(
+          (book) =>
+              book.stock <= _dataService.settings.lowStockLimit &&
+              book.stock > 0,
+        )
+        .length;
     final outOfStock = _books.where((book) => book.stock == 0).length;
     final inventoryValue = _books.fold<int>(
       0,
@@ -257,14 +269,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   String _formatCurrency(int value) {
+    final currency = _dataService.settings.currencySymbol;
     if (value >= 1000000) {
-      return '\$${(value / 1000000).toStringAsFixed(1)}M';
+      return '$currency${(value / 1000000).toStringAsFixed(1)}M';
     }
     if (value >= 1000) {
-      return '\$${(value / 1000).toStringAsFixed(0)}K';
+      return '$currency${(value / 1000).toStringAsFixed(0)}K';
     }
 
-    return '\$$value';
+    return '$currency$value';
   }
 
   Widget _buildSummaryPill({
@@ -404,7 +417,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 Expanded(
                   child: _buildMetricCard(
                     label: 'Precio',
-                    value: '\$${book.price}',
+                    value:
+                        '${_dataService.settings.currencySymbol}${book.price}',
                     icon: Icons.attach_money,
                     color: AppColors.leaf,
                   ),
@@ -426,7 +440,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             _buildDetailRow('Género', book.genre),
             _buildDetailRow(
               'Valor en inventario',
-              '\$${book.price * book.stock}',
+              '${_dataService.settings.currencySymbol}${book.price * book.stock}',
             ),
             const SizedBox(height: 12),
             const Text(
@@ -547,13 +561,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Color _stockColor(Book book) {
     if (book.stock == 0) return AppColors.coral;
-    if (book.stock <= 10) return AppColors.amber;
+    if (book.stock <= _dataService.settings.lowStockLimit) {
+      return AppColors.amber;
+    }
     return AppColors.leaf;
   }
 
   String _stockStatus(Book book) {
     if (book.stock == 0) return 'Agotado';
-    if (book.stock <= 10) return 'Stock bajo';
+    if (book.stock <= _dataService.settings.lowStockLimit) return 'Stock bajo';
     return 'Disponible';
   }
 

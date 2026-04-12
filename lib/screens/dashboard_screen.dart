@@ -1,93 +1,104 @@
 import 'package:flutter/material.dart';
+
+import '../models/app_order.dart';
+import '../services/temporary_data_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/summary_card.dart';
 import '../widgets/quick_action.dart';
-import 'scanner_screen.dart';
+import '../widgets/summary_card.dart';
 
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+  final VoidCallback onNewOrder;
+  final VoidCallback onOpenDispatches;
+  final VoidCallback onScan;
+
+  const DashboardScreen({
+    super.key,
+    required this.onNewOrder,
+    required this.onOpenDispatches,
+    required this.onScan,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSummaryGrid(context),
+    final dataService = TemporaryDataService.instance;
 
-          const SizedBox(height: 24),
+    return AnimatedBuilder(
+      animation: dataService,
+      builder: (context, _) {
+        final orders = dataService.orders;
 
-          // Acciones rápidas
-          const Text(
-            'Acciones rápidas',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSummaryGrid(context, dataService),
+              const SizedBox(height: 18),
+              _buildAlerts(dataService),
+              const SizedBox(height: 24),
+              const Text(
+                'Acciones rapidas',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 12),
+              _buildQuickActions(context),
+              const SizedBox(height: 24),
+              const Text(
+                'Movimiento de pedidos',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 12),
+              _MiniBars(orders: orders),
+              const SizedBox(height: 24),
+              const Text(
+                'Pedidos recientes',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 12),
+              for (final order in orders.take(3)) ...[
+                _RecentOrderTile(order: order),
+                const SizedBox(height: 10),
+              ],
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildQuickActions(context),
-
-          const SizedBox(height: 24),
-
-          // Pedidos recientes
-          const Text(
-            'Pedidos recientes',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          for (var index = 0; index < 3; index++) ...[
-            _RecentOrderTile(
-              orderNumber: '#202400${index + 1}',
-              school: 'Colegio Los Alamos',
-              date: '25/03/2024',
-              status: 'Pendiente',
-              onTap: () {
-                _showMessage(context, 'Ver detalle del pedido');
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSummaryGrid(BuildContext context) {
+  Widget _buildSummaryGrid(
+    BuildContext context,
+    TemporaryDataService dataService,
+  ) {
     final cards = [
       SummaryCard(
         title: 'Pedidos hoy',
-        value: '24',
+        value: dataService.todayOrders.toString(),
         icon: Icons.shopping_cart,
         color: AppColors.teal,
-        onTap: () {
-          _showMessage(context, 'Ver pedidos del día');
-        },
+        onTap: onNewOrder,
       ),
       SummaryCard(
         title: 'Despachos',
-        value: '18',
+        value: dataService.dispatchedOrders.toString(),
         icon: Icons.local_shipping,
         color: AppColors.leaf,
-        onTap: () {
-          _showMessage(context, 'Ver despachos');
-        },
+        onTap: onOpenDispatches,
       ),
       SummaryCard(
-        title: 'Stock bajo',
-        value: '7',
+        title: 'Activos',
+        value: dataService.pendingOrders.toString(),
         icon: Icons.warning,
         color: AppColors.amber,
-        onTap: () {
-          _showMessage(context, 'Ver productos con stock bajo');
-        },
+        onTap: onNewOrder,
       ),
       SummaryCard(
         title: 'Ingresos',
-        value: '\$12.4K',
+        value: _compactMoney(
+            dataService.income, dataService.settings.currencySymbol),
         icon: Icons.attach_money,
         color: AppColors.coral,
-        onTap: () {
-          _showMessage(context, 'Ver reporte de ingresos');
-        },
+        onTap: onNewOrder,
       ),
     ];
 
@@ -108,39 +119,61 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildAlerts(TemporaryDataService dataService) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.amber.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.notifications_active,
+                  color: AppColors.amber),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '${dataService.pendingOrders} pedidos pendientes por mover. '
+                'Stock bajo empieza en ${dataService.settings.lowStockLimit}.',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
       QuickAction(
         title: 'Nuevo pedido',
         icon: Icons.add_shopping_cart,
-        onTap: () {
-          _showMessage(context, 'Crear nuevo pedido');
-        },
+        onTap: onNewOrder,
       ),
       QuickAction(
         title: 'Escanear QR',
         icon: Icons.qr_code_scanner,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ScannerScreen(),
-            ),
-          );
-        },
+        onTap: onScan,
       ),
       QuickAction(
-        title: 'Actualizar precios',
-        icon: Icons.price_change,
-        onTap: () {
-          _showMessage(context, 'Actualizar precios');
-        },
+        title: 'Despachos',
+        icon: Icons.local_shipping_outlined,
+        onTap: onOpenDispatches,
       ),
       QuickAction(
-        title: 'Generar reporte',
+        title: 'Reporte rapido',
         icon: Icons.picture_as_pdf,
         onTap: () {
-          _showMessage(context, 'Generar reporte PDF');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Reporte temporal listo para conectar')),
+          );
         },
       ),
     ];
@@ -164,97 +197,155 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  void _showMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  String _compactMoney(int value, String currency) {
+    if (value >= 1000000) {
+      return '$currency${(value / 1000000).toStringAsFixed(1)}M';
+    }
+    if (value >= 1000) {
+      return '$currency${(value / 1000).toStringAsFixed(1)}K';
+    }
+    return '$currency$value';
   }
 }
 
-class _RecentOrderTile extends StatelessWidget {
-  final String orderNumber;
-  final String school;
-  final String date;
-  final String status;
-  final VoidCallback onTap;
+class _MiniBars extends StatelessWidget {
+  final List<AppOrder> orders;
 
-  const _RecentOrderTile({
-    required this.orderNumber,
-    required this.school,
-    required this.date,
-    required this.status,
-    required this.onTap,
-  });
+  const _MiniBars({required this.orders});
 
   @override
   Widget build(BuildContext context) {
+    final values = [
+      orders.where((order) => order.status == OrderStatus.pending).length,
+      orders.where((order) => order.status == OrderStatus.preparing).length,
+      orders.where((order) => order.status == OrderStatus.ready).length,
+      orders.where((order) => order.status == OrderStatus.dispatched).length,
+    ];
+    final labels = ['Pend.', 'Prep.', 'Listo', 'Desp.'];
+    final maxValue = values.fold(1, (max, value) => value > max ? value : max);
+
     return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.teal.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.shopping_cart, color: AppColors.teal),
-              ),
-              const SizedBox(width: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (var index = 0; index < values.length; index++) ...[
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      height: 36 + (values[index] / maxValue) * 72,
+                      decoration: BoxDecoration(
+                        color: [
+                          AppColors.amber,
+                          AppColors.teal,
+                          AppColors.leaf,
+                          AppColors.coral,
+                        ][index]
+                            .withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      'Pedido $orderNumber',
+                      labels[index],
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$school - $date',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
                         color: AppColors.muted,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.amber.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  status,
-                  style: const TextStyle(
-                    color: Color(0xFF8A5A00),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
+              if (index < values.length - 1) const SizedBox(width: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentOrderTile extends StatelessWidget {
+  final AppOrder order;
+
+  const _RecentOrderTile({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = switch (order.status) {
+      OrderStatus.pending => AppColors.amber,
+      OrderStatus.preparing => AppColors.teal,
+      OrderStatus.ready => AppColors.leaf,
+      OrderStatus.dispatched => AppColors.muted,
+    };
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.teal.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.shopping_cart, color: AppColors.teal),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pedido #${order.id}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.ink,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    order.customer,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                order.status.label,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
