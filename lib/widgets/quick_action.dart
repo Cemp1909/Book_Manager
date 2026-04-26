@@ -5,13 +5,13 @@ import '../theme/app_theme.dart';
 class QuickAction extends StatelessWidget {
   final String title;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const QuickAction({
     super.key,
     required this.title,
     required this.icon,
-    required this.onTap,
+    this.onTap,
   });
 
   @override

@@ -7,7 +7,7 @@ class SummaryCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const SummaryCard({
     super.key,
@@ -15,7 +15,7 @@ class SummaryCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.color,
-    required this.onTap,
+    this.onTap,
   });
 
   @override

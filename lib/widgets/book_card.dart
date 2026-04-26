@@ -6,8 +6,14 @@ import '../services/temporary_data_service.dart';
 class BookCard extends StatelessWidget {
   final Book book;
   final VoidCallback onTap;
+  final bool showPrice;
 
-  const BookCard({super.key, required this.book, required this.onTap});
+  const BookCard({
+    super.key,
+    required this.book,
+    required this.onTap,
+    this.showPrice = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -79,15 +85,16 @@ class BookCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    '$currency${book.price}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.blue,
+                  if (showPrice)
+                    Text(
+                      '$currency${book.price}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.blue,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: showPrice ? 4 : 0),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,

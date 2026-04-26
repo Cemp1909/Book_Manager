@@ -16,6 +16,7 @@ class TemporaryDataService extends ChangeNotifier {
   static const _lowStockKey = 'settings_low_stock_limit';
 
   final List<AppOrder> _orders = _seedOrders;
+  final List<_ComboTemplate> _comboTemplates = List.of(_seedComboTemplates);
   CompanySettings _settings = CompanySettings.defaults;
   bool _settingsLoaded = false;
 
@@ -61,32 +62,41 @@ class TemporaryDataService extends ChangeNotifier {
   }
 
   List<BookCombo> buildCombos(List<Book> books) {
-    if (books.length < 3) return const [];
+    if (books.length < 2) return const [];
 
-    return [
-      BookCombo(
-        name: 'Plan lectura secundaria',
-        audience: 'Colegio Los Alamos',
-        books: books.take(3).toList(),
-        discountPercent: 12,
-      ),
-      BookCombo(
-        name: 'Combo literatura clasica',
-        audience: 'Grado 10 y 11',
-        books: books.reversed.take(3).toList(),
-        discountPercent: 10,
-      ),
-      BookCombo(
-        name: 'Biblioteca inicial',
-        audience: 'Clientes nuevos',
-        books: books.where((book) => book.stock > 0).take(4).toList(),
-        discountPercent: 15,
-      ),
-    ];
+    final booksByIsbn = {for (final book in books) book.isbn: book};
+
+    return _comboTemplates
+        .map((template) {
+          final comboBooks = template.bookIsbns
+              .map((isbn) => booksByIsbn[isbn])
+              .whereType<Book>()
+              .toList();
+
+          if (comboBooks.length < 2) return null;
+
+          return BookCombo(
+            id: template.id,
+            name: template.name,
+            audience: template.audience,
+            books: comboBooks,
+            discountPercent: template.discountPercent,
+          );
+        })
+        .whereType<BookCombo>()
+        .toList();
   }
 
   void addOrder(AppOrder order) {
     _orders.insert(0, order);
+    notifyListeners();
+  }
+
+  void updateOrder(AppOrder order) {
+    final index = _orders.indexWhere((item) => item.id == order.id);
+    if (index == -1) return;
+
+    _orders[index] = order;
     notifyListeners();
   }
 
@@ -95,6 +105,25 @@ class TemporaryDataService extends ChangeNotifier {
     if (index == -1) return;
 
     _orders[index] = _orders[index].copyWith(status: status);
+    notifyListeners();
+  }
+
+  void updateCombo({
+    required String comboId,
+    required String name,
+    required String audience,
+    required int discountPercent,
+    required List<String> bookIsbns,
+  }) {
+    final index = _comboTemplates.indexWhere((combo) => combo.id == comboId);
+    if (index == -1) return;
+
+    _comboTemplates[index] = _comboTemplates[index].copyWith(
+      name: name,
+      audience: audience,
+      discountPercent: discountPercent,
+      bookIsbns: bookIsbns,
+    );
     notifyListeners();
   }
 
@@ -188,4 +217,72 @@ class TemporaryDataService extends ChangeNotifier {
       ],
     ),
   ];
+
+  static const List<_ComboTemplate> _seedComboTemplates = [
+    _ComboTemplate(
+      id: 'combo_secundaria',
+      name: 'Plan lectura secundaria',
+      audience: 'Colegio Los Alamos',
+      discountPercent: 12,
+      bookIsbns: [
+        '978-84-376-0494-7',
+        '978-84-9759-329-4',
+        '978-84-376-0494-8',
+      ],
+    ),
+    _ComboTemplate(
+      id: 'combo_clasica',
+      name: 'Combo literatura clasica',
+      audience: 'Grado 10 y 11',
+      discountPercent: 10,
+      bookIsbns: [
+        '978-84-9759-329-5',
+        '978-84-376-0494-8',
+        '978-84-9759-329-4',
+      ],
+    ),
+    _ComboTemplate(
+      id: 'combo_inicial',
+      name: 'Biblioteca inicial',
+      audience: 'Clientes nuevos',
+      discountPercent: 15,
+      bookIsbns: [
+        '978-84-376-0494-7',
+        '978-84-9759-329-4',
+        '978-84-9759-329-5',
+      ],
+    ),
+  ];
+}
+
+class _ComboTemplate {
+  final String id;
+  final String name;
+  final String audience;
+  final int discountPercent;
+  final List<String> bookIsbns;
+
+  const _ComboTemplate({
+    required this.id,
+    required this.name,
+    required this.audience,
+    required this.discountPercent,
+    required this.bookIsbns,
+  });
+
+  _ComboTemplate copyWith({
+    String? id,
+    String? name,
+    String? audience,
+    int? discountPercent,
+    List<String>? bookIsbns,
+  }) {
+    return _ComboTemplate(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      audience: audience ?? this.audience,
+      discountPercent: discountPercent ?? this.discountPercent,
+      bookIsbns: bookIsbns ?? this.bookIsbns,
+    );
+  }
 }

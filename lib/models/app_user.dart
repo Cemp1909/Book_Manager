@@ -1,19 +1,42 @@
+enum AppRole {
+  administrator,
+  seller,
+  warehouse,
+}
+
+AppRole appRoleFromStorage(String? value) {
+  return AppRole.values.firstWhere(
+    (role) => role.label.toLowerCase() == value?.toLowerCase(),
+    orElse: () => AppRole.administrator,
+  );
+}
+
+extension AppRoleX on AppRole {
+  String get label {
+    return switch (this) {
+      AppRole.administrator => 'Administrador',
+      AppRole.seller => 'Vendedor',
+      AppRole.warehouse => 'Bodeguero',
+    };
+  }
+}
+
 class AppUser {
   final String name;
   final String email;
-  final String role;
+  final AppRole role;
 
   const AppUser({
     required this.name,
     required this.email,
-    this.role = 'Administrador',
+    this.role = AppRole.administrator,
   });
 
   Map<String, String> toMap() {
     return {
       'name': name,
       'email': email,
-      'role': role,
+      'role': role.label,
     };
   }
 
@@ -21,7 +44,28 @@ class AppUser {
     return AppUser(
       name: map['name'] ?? '',
       email: map['email'] ?? '',
-      role: map['role'] ?? 'Administrador',
+      role: appRoleFromStorage(map['role']),
     );
   }
+
+  bool get isAdministrator => role == AppRole.administrator;
+  bool get isSeller => role == AppRole.seller;
+  bool get isWarehouse => role == AppRole.warehouse;
+
+  bool get canViewDashboard => !isWarehouse;
+  bool get canManageSettings => isAdministrator;
+  bool get canViewInventory => true;
+  bool get canManageInventory => isAdministrator;
+  bool get canEditStockOnly => isWarehouse;
+  bool get canSeePrices => !isWarehouse;
+  bool get canSeeInventoryDetails => !isWarehouse;
+  bool get canCreateOrders => isAdministrator || isSeller;
+  bool get canEditOrders => isAdministrator || isSeller;
+  bool get canAdvanceOrders => isAdministrator;
+  bool get canViewOrders => !isWarehouse;
+  bool get canViewDispatches => !isWarehouse;
+  bool get canDispatchOrders => isAdministrator;
+  bool get canViewCombos => !isWarehouse;
+  bool get canEditCombos => isAdministrator;
+  bool get canUseScanner => true;
 }

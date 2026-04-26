@@ -9,7 +9,16 @@ import '../theme/app_theme.dart';
 import '../widgets/order_detail_sheet.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  final bool canCreateOrders;
+  final bool canEditOrders;
+  final bool canAdvanceOrders;
+
+  const OrdersScreen({
+    super.key,
+    this.canCreateOrders = true,
+    this.canEditOrders = false,
+    this.canAdvanceOrders = true,
+  });
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -40,12 +49,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
           children: [
             _buildHeader(orders),
             const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _isLoadingBooks ? null : _openNewOrderSheet,
-              icon: const Icon(Icons.add_shopping_cart),
-              label: const Text('Nuevo pedido'),
-            ),
-            const SizedBox(height: 16),
+            if (widget.canCreateOrders) ...[
+              FilledButton.icon(
+                onPressed: _isLoadingBooks ? null : () => _openOrderSheet(),
+                icon: const Icon(Icons.add_shopping_cart),
+                label: const Text('Nuevo pedido'),
+              ),
+              const SizedBox(height: 16),
+            ],
             for (final order in orders) ...[
               _OrderCard(
                 order: order,
@@ -55,7 +66,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   order: order,
                   currency: _dataService.settings.currencySymbol,
                 ),
-                onAdvance: () => _advanceOrder(order),
+                onEdit: widget.canEditOrders
+                    ? () => _openOrderSheet(initialOrder: order)
+                    : null,
+                onAdvance: widget.canAdvanceOrders
+                    ? () => _advanceOrder(order)
+                    : null,
               ),
               const SizedBox(height: 12),
             ],
@@ -112,24 +128,42 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-  Future<void> _openNewOrderSheet() async {
+  Future<void> _openOrderSheet({AppOrder? initialOrder}) async {
     if (_books.isEmpty) {
       _message('Agrega libros al inventario antes de crear pedidos');
       return;
     }
 
-    final customerController = TextEditingController();
-    final addressController = TextEditingController();
+    final customerController = TextEditingController(
+      text: initialOrder?.customer ?? '',
+    );
+    final addressController = TextEditingController(
+      text: initialOrder?.deliveryAddress == 'Pendiente por confirmar'
+          ? ''
+          : initialOrder?.deliveryAddress ?? '',
+    );
     final combos = _dataService.buildCombos(_books);
     final products = [
       for (final book in _books) _OrderProduct.book(book),
       for (final combo in combos) _OrderProduct.combo(combo),
     ];
-    final draftItems = <OrderItem>[];
+    final draftItems = initialOrder == null
+        ? <OrderItem>[]
+        : initialOrder.items
+            .map(
+              (item) => OrderItem(
+                title: item.title,
+                subtitle: item.subtitle,
+                unitPrice: item.unitPrice,
+                quantity: item.quantity,
+                isCombo: item.isCombo,
+              ),
+            )
+            .toList();
     var selectedProduct = products.first;
     int quantity = 1;
 
-    final created = await showModalBottomSheet<AppOrder>(
+    final savedOrder = await showModalBottomSheet<AppOrder>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -158,9 +192,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   MediaQuery.viewInsetsOf(context).bottom + 20,
                 ),
                 children: [
-                  const Text(
-                    'Nuevo pedido',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                  Text(
+                    initialOrder == null ? 'Nuevo pedido' : 'Editar pedido',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -307,16 +344,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   FilledButton(
                     onPressed: () {
                       final customer = customerController.text.trim();
-                      if (customer.isEmpty) return;
-                      if (draftItems.isEmpty) return;
+                      if (customer.isEmpty || draftItems.isEmpty) return;
 
                       Navigator.pop(
                         context,
                         AppOrder(
-                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          id: initialOrder?.id ??
+                              DateTime.now().millisecondsSinceEpoch.toString(),
                           customer: customer,
-                          date: DateTime.now(),
-                          status: OrderStatus.pending,
+                          date: initialOrder?.date ?? DateTime.now(),
+                          status: initialOrder?.status ?? OrderStatus.pending,
                           deliveryAddress: addressController.text.trim().isEmpty
                               ? 'Pendiente por confirmar'
                               : addressController.text.trim(),
@@ -324,7 +361,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ),
                       );
                     },
-                    child: const Text('Guardar pedido completo'),
+                    child: Text(
+                      initialOrder == null
+                          ? 'Guardar pedido completo'
+                          : 'Guardar cambios',
+                    ),
                   ),
                 ],
               ),
@@ -337,10 +378,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
     customerController.dispose();
     addressController.dispose();
 
-    if (created == null) return;
+    if (savedOrder == null) return;
 
-    _dataService.addOrder(created);
-    _message('Pedido creado para ${created.customer}');
+    if (initialOrder == null) {
+      _dataService.addOrder(savedOrder);
+      _message('Pedido creado para ${savedOrder.customer}');
+      return;
+    }
+
+    _dataService.updateOrder(savedOrder);
+    _message('Pedido actualizado para ${savedOrder.customer}');
   }
 
   void _advanceOrder(AppOrder order) {
@@ -367,13 +414,15 @@ class _OrderCard extends StatelessWidget {
   final AppOrder order;
   final String currency;
   final VoidCallback onTap;
-  final VoidCallback onAdvance;
+  final VoidCallback? onEdit;
+  final VoidCallback? onAdvance;
 
   const _OrderCard({
     required this.order,
     required this.currency,
     required this.onTap,
-    required this.onAdvance,
+    this.onEdit,
+    this.onAdvance,
   });
 
   @override
@@ -424,19 +473,32 @@ class _OrderCard extends StatelessWidget {
                 style: const TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  onPressed:
-                      order.status == OrderStatus.dispatched ? null : onAdvance,
-                  icon: const Icon(Icons.arrow_forward),
-                  label: Text(
-                    order.status == OrderStatus.dispatched
-                        ? 'Completado'
-                        : 'Avanzar',
-                  ),
+              if (onEdit != null || onAdvance != null)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (onEdit != null)
+                      OutlinedButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Editar'),
+                      ),
+                    if (onEdit != null && onAdvance != null)
+                      const SizedBox(width: 10),
+                    if (onAdvance != null)
+                      OutlinedButton.icon(
+                        onPressed: order.status == OrderStatus.dispatched
+                            ? null
+                            : onAdvance,
+                        icon: const Icon(Icons.arrow_forward),
+                        label: Text(
+                          order.status == OrderStatus.dispatched
+                              ? 'Completado'
+                              : 'Avanzar',
+                        ),
+                      ),
+                  ],
                 ),
-              ),
             ],
           ),
         ),
@@ -519,50 +581,16 @@ class _DraftOrderItem extends StatelessWidget {
                 ),
                 Text(
                   '${item.quantity} x ${money(item.unitPrice)}',
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: const TextStyle(color: AppColors.muted),
                 ),
               ],
             ),
           ),
-          Text(
-            money(item.total),
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
           IconButton(
             onPressed: onRemove,
-            icon: const Icon(Icons.close),
-            tooltip: 'Quitar',
+            icon: const Icon(Icons.delete_outline),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _StatusBadge({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-        ),
       ),
     );
   }
@@ -586,24 +614,49 @@ class _HeaderMetric extends StatelessWidget {
       children: [
         Text(
           value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: color,
             fontSize: 22,
             fontWeight: FontWeight.w900,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: AppColors.muted,
             fontWeight: FontWeight.w700,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _StatusBadge({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }

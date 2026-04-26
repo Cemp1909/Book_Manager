@@ -19,22 +19,60 @@ void main() {
     expect(find.text('Crear usuario'), findsNothing);
   });
 
-  testWidgets('Temporary login accepts any email and password', (
+  testWidgets('Stored account can log in with its saved role', (
     WidgetTester tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'auth_user_name': 'Ana',
+      'auth_user_email': 'ana@test.com',
+      'auth_user_role': 'Vendedor',
+      'auth_user_password': '123456',
+      'auth_logged_in': false,
+    });
 
     await tester.pumpWidget(const EditorialManagerApp());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'lo-que-sea');
-    await tester.enterText(find.byType(TextFormField).at(1), 'x');
+    await tester.enterText(find.byType(TextFormField).at(0), 'ana@test.com');
+    await tester.enterText(find.byType(TextFormField).at(1), '123456');
     await tester.tap(find.widgetWithText(FilledButton, 'Entrar'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('Editorial Manager'), findsOneWidget);
+    expect(find.text('Combos'), findsOneWidget);
+  });
+
+  testWidgets('Warehouse role only sees inventory section', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'auth_user_name': 'Bodega',
+      'auth_user_email': 'bodega@test.com',
+      'auth_user_role': 'Bodeguero',
+      'auth_user_password': '123456',
+      'auth_logged_in': false,
+    });
+
+    await tester.pumpWidget(const EditorialManagerApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      'bodega@test.com',
+    );
+    await tester.enterText(find.byType(TextFormField).at(1), '123456');
+    await tester.tap(find.widgetWithText(FilledButton, 'Entrar'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Inventario'), findsWidgets);
+    expect(find.text('Editorial Manager'), findsNothing);
+    expect(find.text('Combos'), findsNothing);
+    expect(find.text('Pedidos'), findsNothing);
+    expect(find.text('Despachos'), findsNothing);
   });
 }

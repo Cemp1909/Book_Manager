@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../models/book.dart';
 import '../models/book_combo.dart';
 import '../services/database_service.dart';
 import '../services/temporary_data_service.dart';
 import '../theme/app_theme.dart';
 
 class CombosScreen extends StatefulWidget {
-  const CombosScreen({super.key});
+  final bool canEditCombos;
+
+  const CombosScreen({
+    super.key,
+    this.canEditCombos = false,
+  });
 
   @override
   State<CombosScreen> createState() => _CombosScreenState();
@@ -16,66 +23,77 @@ class _CombosScreenState extends State<CombosScreen> {
   final _databaseService = DatabaseService.instance;
   final _dataService = TemporaryDataService.instance;
 
-  List<BookCombo> _combos = [];
+  List<Book> _books = [];
   bool _isLoading = true;
+
+  List<BookCombo> get _combos => _dataService.buildCombos(_books);
 
   @override
   void initState() {
     super.initState();
-    _loadCombos();
+    _loadBooks();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    return AnimatedBuilder(
+      animation: _dataService,
+      builder: (context, _) {
+        if (_isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    if (_combos.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'Agrega mas libros al inventario para armar combos temporales.',
-            textAlign: TextAlign.center,
-            style:
-                TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
-          ),
-        ),
-      );
-    }
+        if (_combos.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Agrega mas libros al inventario para armar combos temporales.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
+        }
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text(
-          'Combos listos para vender',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Estos combos salen del inventario local y luego se conectan a la base de datos.',
-          style: TextStyle(color: AppColors.muted),
-        ),
-        const SizedBox(height: 16),
-        for (final combo in _combos) ...[
-          _ComboCard(
-            combo: combo,
-            currency: _dataService.settings.currencySymbol,
-            onTap: () => _showComboDetail(combo),
-          ),
-          const SizedBox(height: 12),
-        ],
-      ],
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Text(
+              'Combos listos para vender',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              widget.canEditCombos
+                  ? 'Como administrador puedes ajustar nombre, publico, descuento y libros.'
+                  : 'Estos combos salen del inventario local y luego se conectan a la base de datos.',
+              style: const TextStyle(color: AppColors.muted),
+            ),
+            const SizedBox(height: 16),
+            for (final combo in _combos) ...[
+              _ComboCard(
+                combo: combo,
+                currency: _dataService.settings.currencySymbol,
+                onTap: () => _showComboDetail(combo),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        );
+      },
     );
   }
 
-  Future<void> _loadCombos() async {
+  Future<void> _loadBooks() async {
     try {
       final books = await _databaseService.getBooks();
       if (!mounted) return;
       setState(() {
-        _combos = _dataService.buildCombos(books);
+        _books = books;
         _isLoading = false;
       });
     } catch (_) {
@@ -117,9 +135,144 @@ class _CombosScreenState extends State<CombosScreen> {
             'Precio combo: ${_dataService.settings.currencySymbol}${combo.total}',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
+          if (widget.canEditCombos) ...[
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _openEditComboSheet(combo);
+                },
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Editar combo'),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _openEditComboSheet(BookCombo combo) async {
+    final nameController = TextEditingController(text: combo.name);
+    final audienceController = TextEditingController(text: combo.audience);
+    final discountController =
+        TextEditingController(text: combo.discountPercent.toString());
+    final selectedIsbns = combo.books.map((book) => book.isbn).toSet();
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.9,
+          minChildSize: 0.6,
+          maxChildSize: 0.96,
+          builder: (context, scrollController) => ListView(
+            controller: scrollController,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.viewInsetsOf(context).bottom + 20,
+            ),
+            children: [
+              const Text(
+                'Editar combo',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre del combo',
+                  prefixIcon: Icon(Icons.grid_view),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: audienceController,
+                decoration: const InputDecoration(
+                  labelText: 'Publico o segmento',
+                  prefixIcon: Icon(Icons.groups_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: discountController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Descuento (%)',
+                  prefixIcon: Icon(Icons.percent),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Libros del combo',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              for (final book in _books)
+                CheckboxListTile(
+                  value: selectedIsbns.contains(book.isbn),
+                  onChanged: (selected) {
+                    setSheetState(() {
+                      if (selected ?? false) {
+                        selectedIsbns.add(book.isbn);
+                      } else {
+                        selectedIsbns.remove(book.isbn);
+                      }
+                    });
+                  },
+                  title: Text(book.title),
+                  subtitle: Text(book.author),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  final discount = int.tryParse(discountController.text);
+                  if (nameController.text.trim().isEmpty ||
+                      audienceController.text.trim().isEmpty ||
+                      discount == null ||
+                      discount < 0 ||
+                      discount > 99 ||
+                      selectedIsbns.length < 2) {
+                    return;
+                  }
+
+                  _dataService.updateCombo(
+                    comboId: combo.id,
+                    name: nameController.text.trim(),
+                    audience: audienceController.text.trim(),
+                    discountPercent: discount,
+                    bookIsbns: selectedIsbns.toList(),
+                  );
+                  Navigator.pop(context, true);
+                },
+                child: const Text('Guardar cambios'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    nameController.dispose();
+    audienceController.dispose();
+    discountController.dispose();
+
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Combo actualizado')),
+      );
+    }
   }
 }
 

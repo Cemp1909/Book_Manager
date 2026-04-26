@@ -6,7 +6,12 @@ import '../theme/app_theme.dart';
 import '../widgets/order_detail_sheet.dart';
 
 class DispatchesScreen extends StatelessWidget {
-  const DispatchesScreen({super.key});
+  final bool canDispatchOrders;
+
+  const DispatchesScreen({
+    super.key,
+    this.canDispatchOrders = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -62,17 +67,19 @@ class DispatchesScreen extends StatelessWidget {
                     order: order,
                     currency: dataService.settings.currencySymbol,
                   ),
-                  onDispatch: () {
-                    dataService.updateOrderStatus(
-                      order.id,
-                      OrderStatus.dispatched,
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Pedido #${order.id} despachado'),
-                      ),
-                    );
-                  },
+                  onDispatch: canDispatchOrders
+                      ? () {
+                          dataService.updateOrderStatus(
+                            order.id,
+                            OrderStatus.dispatched,
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Pedido #${order.id} despachado'),
+                            ),
+                          );
+                        }
+                      : null,
                 ),
                 const SizedBox(height: 12),
               ],
@@ -87,13 +94,13 @@ class _DispatchCard extends StatelessWidget {
   final AppOrder order;
   final String currency;
   final VoidCallback onTap;
-  final VoidCallback onDispatch;
+  final VoidCallback? onDispatch;
 
   const _DispatchCard({
     required this.order,
     required this.currency,
     required this.onTap,
-    required this.onDispatch,
+    this.onDispatch,
   });
 
   @override

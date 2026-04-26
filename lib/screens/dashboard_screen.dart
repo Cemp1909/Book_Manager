@@ -8,15 +8,15 @@ import '../widgets/quick_action.dart';
 import '../widgets/summary_card.dart';
 
 class DashboardScreen extends StatelessWidget {
-  final VoidCallback onNewOrder;
-  final VoidCallback onOpenDispatches;
-  final VoidCallback onScan;
+  final VoidCallback? onNewOrder;
+  final VoidCallback? onOpenDispatches;
+  final VoidCallback? onScan;
 
   const DashboardScreen({
     super.key,
-    required this.onNewOrder,
-    required this.onOpenDispatches,
-    required this.onScan,
+    this.onNewOrder,
+    this.onOpenDispatches,
+    this.onScan,
   });
 
   @override
@@ -84,7 +84,9 @@ class DashboardScreen extends StatelessWidget {
         value: dataService.todayOrders.toString(),
         icon: Icons.shopping_cart,
         color: AppColors.teal,
-        onTap: () => _showPendingOrders(context, dataService),
+        onTap: onNewOrder == null
+            ? null
+            : () => _showPendingOrders(context, dataService),
       ),
       SummaryCard(
         title: 'Despachos',
@@ -166,21 +168,24 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
-      QuickAction(
-        title: 'Nuevo pedido',
-        icon: Icons.add_shopping_cart,
-        onTap: onNewOrder,
-      ),
-      QuickAction(
-        title: 'Escanear QR',
-        icon: Icons.qr_code_scanner,
-        onTap: onScan,
-      ),
-      QuickAction(
-        title: 'Despachos',
-        icon: Icons.local_shipping_outlined,
-        onTap: onOpenDispatches,
-      ),
+      if (onNewOrder != null)
+        QuickAction(
+          title: 'Nuevo pedido',
+          icon: Icons.add_shopping_cart,
+          onTap: onNewOrder,
+        ),
+      if (onScan != null)
+        QuickAction(
+          title: 'Escanear QR',
+          icon: Icons.qr_code_scanner,
+          onTap: onScan,
+        ),
+      if (onOpenDispatches != null)
+        QuickAction(
+          title: 'Despachos',
+          icon: Icons.local_shipping_outlined,
+          onTap: onOpenDispatches,
+        ),
       QuickAction(
         title: 'Reporte rapido',
         icon: Icons.picture_as_pdf,
@@ -195,6 +200,8 @@ class DashboardScreen extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (actions.isEmpty) return const SizedBox.shrink();
+
         final itemWidth = constraints.maxWidth < 420
             ? (constraints.maxWidth - 12) / 2
             : 180.0;

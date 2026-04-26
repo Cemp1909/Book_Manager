@@ -28,14 +28,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<String> _titles = [
-    'Editorial Manager',
-    'Inventario',
-    'Combos',
-    'Pedidos',
-    'Despachos',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -44,26 +36,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      DashboardScreen(
-        onNewOrder: () => _selectTab(3),
-        onOpenDispatches: () => _selectTab(4),
-        onScan: _openScanner,
-      ),
-      const InventoryScreen(),
-      const CombosScreen(),
-      const OrdersScreen(),
-      const DispatchesScreen(),
-    ];
+    final items = _buildNavItems();
+    final selectedIndex = _selectedIndex >= items.length ? 0 : _selectedIndex;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_selectedIndex]),
+        title: Text(items[selectedIndex].title),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            onPressed: _openScanner,
-          ),
+          if (widget.user.canUseScanner)
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: _openScanner,
+            ),
           IconButton(
             icon: CircleAvatar(
               radius: 16,
@@ -84,38 +68,123 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: screens[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard), label: 'Inicio'),
-          NavigationDestination(
+      body: items[selectedIndex].screen,
+      bottomNavigationBar: items.length < 2
+          ? null
+          : NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              destinations: items.map((item) => item.destination).toList(),
+            ),
+    );
+  }
+
+  List<_NavItem> _buildNavItems() {
+    final items = <_NavItem>[];
+
+    if (widget.user.canViewDashboard) {
+      items.add(
+        _NavItem(
+          title: 'Editorial Manager',
+          destination: const NavigationDestination(
+            icon: Icon(Icons.dashboard),
+            label: 'Inicio',
+          ),
+          screen: DashboardScreen(
+            onNewOrder:
+                widget.user.canCreateOrders ? () => _selectSection('Pedidos') : null,
+            onOpenDispatches: widget.user.canViewDispatches
+                ? () => _selectSection('Despachos')
+                : null,
+            onScan: widget.user.canUseScanner ? _openScanner : null,
+          ),
+        ),
+      );
+    }
+
+    if (widget.user.canViewInventory) {
+      items.add(
+        _NavItem(
+          title: 'Inventario',
+          destination: const NavigationDestination(
             icon: Icon(Icons.menu_book),
             label: 'Inventario',
           ),
-          NavigationDestination(icon: Icon(Icons.grid_view), label: 'Combos'),
-          NavigationDestination(
+          screen: InventoryScreen(
+            canManageInventory: widget.user.canManageInventory,
+            canEditStockOnly: widget.user.canEditStockOnly,
+            showPrices: widget.user.canSeePrices,
+            showFullDetails: widget.user.canSeeInventoryDetails,
+            canScanInventory: widget.user.canUseScanner,
+          ),
+        ),
+      );
+    }
+
+    if (widget.user.canViewCombos) {
+      items.add(
+        _NavItem(
+          title: 'Combos',
+          destination: const NavigationDestination(
+            icon: Icon(Icons.grid_view),
+            label: 'Combos',
+          ),
+          screen: CombosScreen(
+            canEditCombos: widget.user.canEditCombos,
+          ),
+        ),
+      );
+    }
+
+    if (widget.user.canViewOrders) {
+      items.add(
+        _NavItem(
+          title: 'Pedidos',
+          destination: const NavigationDestination(
             icon: Icon(Icons.shopping_cart),
             label: 'Pedidos',
           ),
-          NavigationDestination(
+          screen: OrdersScreen(
+            canCreateOrders: widget.user.canCreateOrders,
+            canEditOrders: widget.user.canEditOrders,
+            canAdvanceOrders: widget.user.canAdvanceOrders,
+          ),
+        ),
+      );
+    }
+
+    if (widget.user.canViewDispatches) {
+      items.add(
+        _NavItem(
+          title: 'Despachos',
+          destination: const NavigationDestination(
             icon: Icon(Icons.local_shipping),
             label: 'Despachos',
           ),
-        ],
-      ),
-    );
+          screen: DispatchesScreen(
+            canDispatchOrders: widget.user.canDispatchOrders,
+          ),
+        ),
+      );
+    }
+
+    return items;
   }
 
   void _selectTab(int index) {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  void _selectSection(String title) {
+    final index = _buildNavItems().indexWhere((item) => item.title == title);
+    if (index == -1) return;
+    _selectTab(index);
   }
 
   void _openScanner() {
@@ -158,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(widget.user.email),
             const SizedBox(height: 4),
             Chip(
-              label: Text(widget.user.role),
+              label: Text(widget.user.role.label),
               backgroundColor: AppColors.teal.withValues(alpha: 0.12),
               labelStyle: const TextStyle(
                 color: AppColors.tealDark,
@@ -174,19 +243,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 _openScanner();
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Configuración'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              },
-            ),
+            if (widget.user.canManageSettings)
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: const Text('Configuración'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  );
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Cerrar sesión'),
@@ -202,4 +272,16 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+class _NavItem {
+  final String title;
+  final NavigationDestination destination;
+  final Widget screen;
+
+  const _NavItem({
+    required this.title,
+    required this.destination,
+    required this.screen,
+  });
 }

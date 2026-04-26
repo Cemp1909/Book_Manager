@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/book.dart';
 import '../services/database_service.dart';
@@ -9,7 +10,20 @@ import 'add_book_screen.dart';
 import 'scanner_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
-  const InventoryScreen({super.key});
+  final bool canManageInventory;
+  final bool canEditStockOnly;
+  final bool showPrices;
+  final bool showFullDetails;
+  final bool canScanInventory;
+
+  const InventoryScreen({
+    super.key,
+    this.canManageInventory = false,
+    this.canEditStockOnly = false,
+    this.showPrices = true,
+    this.showFullDetails = true,
+    this.canScanInventory = true,
+  });
 
   @override
   State<InventoryScreen> createState() => _InventoryScreenState();
@@ -107,11 +121,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                IconButton.filled(
-                  onPressed: _scanAndSearch,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  tooltip: 'Escanear ISBN',
-                ),
+                if (widget.canScanInventory)
+                  IconButton.filled(
+                    onPressed: _scanAndSearch,
+                    icon: const Icon(Icons.qr_code_scanner),
+                    tooltip: 'Escanear ISBN',
+                  ),
               ],
             ),
           ),
@@ -163,6 +178,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           final book = _filteredBooks[index];
                           return BookCard(
                             book: book,
+                            showPrice: widget.showPrices,
                             onTap: () {
                               _showBookDetail(context, book);
                             },
@@ -172,11 +188,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openAddBookScreen(),
-        icon: const Icon(Icons.add),
-        label: const Text('Agregar libro'),
-      ),
+      floatingActionButton: widget.canManageInventory
+          ? FloatingActionButton.extended(
+              onPressed: () => _openAddBookScreen(),
+              icon: const Icon(Icons.add),
+              label: const Text('Agregar libro'),
+            )
+          : null,
     );
   }
 
@@ -206,7 +224,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       (total, book) => total + (book.price * book.stock),
     );
 
-    final summaryItems = [
+    final summaryItems = <Widget>[
       _buildSummaryPill(
         label: 'Libros',
         value: _books.length.toString(),
@@ -222,47 +240,27 @@ class _InventoryScreenState extends State<InventoryScreen> {
         value: outOfStock.toString(),
         color: AppColors.coral,
       ),
-      _buildSummaryPill(
-        label: 'Valor',
-        value: _formatCurrency(inventoryValue),
-        color: AppColors.leaf,
-      ),
+      if (widget.showPrices)
+        _buildSummaryPill(
+          label: 'Valor',
+          value: _formatCurrency(inventoryValue),
+          color: AppColors.leaf,
+        ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 520) {
-          return Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(child: summaryItems[0]),
-                  const SizedBox(width: 8),
-                  Expanded(child: summaryItems[1]),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: summaryItems[2]),
-                  const SizedBox(width: 8),
-                  Expanded(child: summaryItems[3]),
-                ],
-              ),
-            ],
-          );
-        }
+        final itemWidth = constraints.maxWidth < 520
+            ? (constraints.maxWidth - 8) / 2
+            : (constraints.maxWidth - ((summaryItems.length - 1) * 8)) /
+                summaryItems.length;
 
-        return Row(
-          children: [
-            Expanded(child: summaryItems[0]),
-            const SizedBox(width: 8),
-            Expanded(child: summaryItems[1]),
-            const SizedBox(width: 8),
-            Expanded(child: summaryItems[2]),
-            const SizedBox(width: 8),
-            Expanded(child: summaryItems[3]),
-          ],
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: summaryItems
+              .map((item) => SizedBox(width: itemWidth, child: item))
+              .toList(),
         );
       },
     );
@@ -322,6 +320,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showBookDetail(BuildContext context, Book book) {
+    if (!widget.showFullDetails) {
+      _showStockOnlyDetail(context, book);
+      return;
+    }
+
     final stockColor = _stockColor(book);
     final statusText = _stockStatus(book);
 
@@ -455,7 +458,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             const SizedBox(height: 22),
             Row(
               children: [
-                if (book.id != null) ...[
+                if (widget.canManageInventory && book.id != null) ...[
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
@@ -470,31 +473,113 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                   const SizedBox(width: 12),
                 ],
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _openEditBookScreen(book);
-                    },
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Editar'),
+                if (widget.canManageInventory) ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _openEditBookScreen(book);
+                      },
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Editar'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showMessage(
-                        context,
-                        'Agregar al pedido: ${book.title}',
-                      );
-                    },
-                    child: const Text('Pedido'),
+                ],
+                if (widget.canManageInventory && widget.canEditStockOnly)
+                  const SizedBox(width: 12),
+                if (widget.canEditStockOnly)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _openStockEditor(book);
+                      },
+                      child: const Text('Stock'),
+                    ),
                   ),
-                ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showStockOnlyDetail(BuildContext context, Book book) {
+    final stockColor = _stockColor(book);
+    final statusText = _stockStatus(book);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              book.title,
+              style: const TextStyle(
+                color: AppColors.ink,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              book.author,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: stockColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Stock actual: ${book.stock}',
+                    style: TextStyle(
+                      color: stockColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      color: stockColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (widget.canEditStockOnly) ...[
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _openStockEditor(book);
+                  },
+                  icon: const Icon(Icons.inventory_2_outlined),
+                  label: const Text('Actualizar stock'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -716,6 +801,57 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (!mounted) return;
 
       _showMessage(context, 'No se pudo actualizar el libro: $error');
+    }
+  }
+
+  Future<void> _openStockEditor(Book book) async {
+    final controller = TextEditingController(text: book.stock.toString());
+
+    final newStock = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Actualizar stock'),
+        content: TextFormField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(
+            labelText: 'Cantidad disponible',
+            helperText: '${book.title} - ${book.author}',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final stock = int.tryParse(controller.text);
+              if (stock == null || stock < 0) return;
+              Navigator.pop(context, stock);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+
+    if (newStock == null) return;
+
+    final updatedBook = book.copyWith(stock: newStock);
+
+    try {
+      await _databaseService.updateBook(updatedBook);
+      await _loadBooks();
+      if (!mounted) return;
+      _showMessage(context, 'Stock actualizado: ${updatedBook.stock}');
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(context, 'No se pudo actualizar el stock: $error');
     }
   }
 

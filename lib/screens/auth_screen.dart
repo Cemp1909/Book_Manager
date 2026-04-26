@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
@@ -25,6 +26,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  AppRole _selectedRole = AppRole.administrator;
 
   @override
   void dispose() {
@@ -112,7 +114,7 @@ class _AuthScreenState extends State<AuthScreen> {
             Text(
               _isLogin
                   ? 'Ingresa a tu panel editorial.'
-                  : 'Registra tu cuenta administrativa.',
+                  : 'Registra la cuenta y el rol de este dispositivo.',
               style: const TextStyle(color: AppColors.muted, fontSize: 14),
             ),
             const SizedBox(height: 24),
@@ -130,6 +132,26 @@ class _AuthScreenState extends State<AuthScreen> {
                     return 'Ingresa tu nombre completo';
                   }
                   return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<AppRole>(
+                initialValue: _selectedRole,
+                decoration: const InputDecoration(
+                  labelText: 'Rol',
+                  prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+                ),
+                items: AppRole.values
+                    .map(
+                      (role) => DropdownMenuItem(
+                        value: role,
+                        child: Text(role.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (role) {
+                  if (role == null) return;
+                  setState(() => _selectedRole = role);
                 },
               ),
               const SizedBox(height: 16),
@@ -323,6 +345,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _isLogin = !_isLogin;
       _formKey.currentState?.reset();
       _confirmPasswordController.clear();
+      _selectedRole = AppRole.administrator;
     });
   }
 
@@ -342,6 +365,7 @@ class _AuthScreenState extends State<AuthScreen> {
             name: _nameController.text.trim(),
             email: _emailController.text.trim(),
             password: _passwordController.text,
+            role: _selectedRole,
           );
 
     if (!mounted) return;
