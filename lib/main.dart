@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/auth_gate.dart';
-import 'theme/app_theme.dart';
+import 'package:book_manager/aplicacion/tema/app_theme.dart';
+import 'package:book_manager/caracteristicas/autenticacion/pantallas/auth_gate.dart';
 
 void main() {
   runApp(const EditorialManagerApp());
