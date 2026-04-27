@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:book_manager/caracteristicas/inventario/modelos/book.dart';
-import 'package:book_manager/compartido/servicios/temporary_data_service.dart';
+import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
+import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 
 class BookCard extends StatelessWidget {
   final Book book;

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:book_manager/aplicacion/tema/app_theme.dart';
-import 'package:book_manager/caracteristicas/pedidos/modelos/app_order.dart';
-import 'package:book_manager/caracteristicas/pedidos/widgets/order_detail_sheet.dart';
-import 'package:book_manager/compartido/servicios/temporary_data_service.dart';
-import 'package:book_manager/compartido/widgets/quick_action.dart';
-import 'package:book_manager/compartido/widgets/summary_card.dart';
+import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/caracteristicas/pedidos/modelos/pedido_app.dart';
+import 'package:book_manager/caracteristicas/pedidos/componentes/hoja_detalle_pedido.dart';
+import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/componentes/accion_rapida.dart';
+import 'package:book_manager/compartido/componentes/tarjeta_resumen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final VoidCallback? onNewOrder;

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:book_manager/caracteristicas/combos/modelos/book_combo.dart';
-import 'package:book_manager/caracteristicas/configuracion/modelos/company_settings.dart';
-import 'package:book_manager/caracteristicas/inventario/modelos/book.dart';
-import 'package:book_manager/caracteristicas/pedidos/modelos/app_order.dart';
+import 'package:book_manager/caracteristicas/combos/modelos/combo_libros.dart';
+import 'package:book_manager/caracteristicas/configuracion/modelos/configuracion_empresa.dart';
+import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
+import 'package:book_manager/caracteristicas/pedidos/modelos/pedido_app.dart';
 
 class TemporaryDataService extends ChangeNotifier {
   TemporaryDataService._();

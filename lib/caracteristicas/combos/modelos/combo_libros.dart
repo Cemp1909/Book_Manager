@@ -1,4 +1,4 @@
-import 'package:book_manager/caracteristicas/inventario/modelos/book.dart';
+import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
 
 class BookCombo {
   final String id;

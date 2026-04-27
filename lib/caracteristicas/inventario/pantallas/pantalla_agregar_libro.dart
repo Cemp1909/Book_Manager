@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:book_manager/aplicacion/tema/app_theme.dart';
-import 'package:book_manager/caracteristicas/inventario/modelos/book.dart';
+import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
 
 class AddBookScreen extends StatefulWidget {
   final Book? book;

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:book_manager/caracteristicas/autenticacion/modelos/app_user.dart';
-import 'package:book_manager/caracteristicas/autenticacion/pantallas/auth_screen.dart';
-import 'package:book_manager/caracteristicas/autenticacion/servicios/auth_service.dart';
-import 'package:book_manager/caracteristicas/inicio/pantallas/home_screen.dart';
+import 'package:book_manager/caracteristicas/autenticacion/modelos/usuario_app.dart';
+import 'package:book_manager/caracteristicas/autenticacion/pantallas/pantalla_autenticacion.dart';
+import 'package:book_manager/caracteristicas/autenticacion/servicios/servicio_autenticacion.dart';
+import 'package:book_manager/caracteristicas/inicio/pantallas/pantalla_inicio.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:book_manager/caracteristicas/inventario/modelos/book.dart';
+import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
 
 class DatabaseService {
   DatabaseService._();

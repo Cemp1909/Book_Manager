@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:book_manager/aplicacion/tema/app_theme.dart';
-import 'package:book_manager/caracteristicas/autenticacion/modelos/app_user.dart';
-import 'package:book_manager/caracteristicas/autenticacion/servicios/auth_service.dart';
+import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/caracteristicas/autenticacion/modelos/usuario_app.dart';
+import 'package:book_manager/caracteristicas/autenticacion/servicios/servicio_autenticacion.dart';
 
 const _companyLogoAsset = 'assets/branding/logo.jpeg';
 

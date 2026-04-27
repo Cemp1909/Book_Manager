@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:book_manager/aplicacion/tema/app_theme.dart';
-import 'package:book_manager/caracteristicas/combos/modelos/book_combo.dart';
-import 'package:book_manager/caracteristicas/inventario/modelos/book.dart';
-import 'package:book_manager/caracteristicas/inventario/servicios/database_service.dart';
-import 'package:book_manager/compartido/servicios/temporary_data_service.dart';
+import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/caracteristicas/combos/modelos/combo_libros.dart';
+import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
+import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
+import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 
 class CombosScreen extends StatefulWidget {
   final bool canEditCombos;
