@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:book_manager/caracteristicas/autenticacion/modelos/usuario_app.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/inicio/componentes/base_inicio_rol.dart';
 import 'package:book_manager/caracteristicas/inventario/pantallas/pantalla_inventario.dart';
 
@@ -23,7 +23,8 @@ class PantallaInicioBodeguero extends StatelessWidget {
           ItemNavegacionRol(
             title: 'Inventario de bodega',
             destination: NavigationDestination(
-              icon: Icon(Icons.inventory_2),
+              icon: Icon(Icons.inventory_2_outlined),
+              selectedIcon: Icon(Icons.inventory_2),
               label: 'Inventario',
             ),
             screen: InventoryScreen(

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
+import 'package:book_manager/datos/modelos/libro.dart';
 
 class DatabaseService {
   DatabaseService._();
@@ -10,7 +10,7 @@ class DatabaseService {
   static final DatabaseService instance = DatabaseService._();
 
   static const _databaseName = 'editorial_manager.db';
-  static const _databaseVersion = 1;
+  static const _databaseVersion = 2;
   static const booksTable = 'books';
 
   Database? _database;
@@ -29,6 +29,7 @@ class DatabaseService {
       path,
       version: _databaseVersion,
       onCreate: _createDatabase,
+      onUpgrade: _upgradeDatabase,
     );
 
     return _database!;
@@ -44,7 +45,8 @@ class DatabaseService {
         price INTEGER NOT NULL,
         stock INTEGER NOT NULL,
         genre TEXT NOT NULL,
-        description TEXT NOT NULL
+        description TEXT NOT NULL,
+        coverUrl TEXT NOT NULL DEFAULT ''
       )
     ''');
 
@@ -53,6 +55,18 @@ class DatabaseService {
       batch.insert(booksTable, book.toMap());
     }
     await batch.commit(noResult: true);
+  }
+
+  Future<void> _upgradeDatabase(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        "ALTER TABLE $booksTable ADD COLUMN coverUrl TEXT NOT NULL DEFAULT ''",
+      );
+    }
   }
 
   Future<List<Book>> getBooks() async {

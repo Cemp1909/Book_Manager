@@ -39,13 +39,23 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Entrar'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.text('Editorial Manager'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byIcon(Icons.menu), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Inicio'), findsWidgets);
+    expect(find.text('Biblioteca'), findsWidgets);
+    expect(find.text('Agregar'), findsNothing);
     expect(find.text('Combos'), findsOneWidget);
+    expect(find.text('Pedidos'), findsOneWidget);
+    expect(find.text('Despachos'), findsOneWidget);
+    expect(find.text('Perfil'), findsWidgets);
   });
 
-  testWidgets('Warehouse role only sees inventory section', (
+  testWidgets('Warehouse role only sees warehouse inventory', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -68,8 +78,11 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Entrar'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Inventario'), findsWidgets);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byIcon(Icons.menu), findsNothing);
+    expect(find.text('Inventario de bodega'), findsOneWidget);
     expect(find.text('Editorial Manager'), findsNothing);
     expect(find.text('Combos'), findsNothing);
     expect(find.text('Pedidos'), findsNothing);

@@ -7,6 +7,7 @@ class Book {
   final int stock;
   final String genre;
   final String description;
+  final String coverUrl;
 
   const Book({
     this.id,
@@ -17,6 +18,7 @@ class Book {
     required this.stock,
     required this.genre,
     required this.description,
+    this.coverUrl = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +31,7 @@ class Book {
       'stock': stock,
       'genre': genre,
       'description': description,
+      'coverUrl': coverUrl,
     };
   }
 
@@ -41,6 +44,7 @@ class Book {
     int? stock,
     String? genre,
     String? description,
+    String? coverUrl,
   }) {
     return Book(
       id: id ?? this.id,
@@ -51,6 +55,7 @@ class Book {
       stock: stock ?? this.stock,
       genre: genre ?? this.genre,
       description: description ?? this.description,
+      coverUrl: coverUrl ?? this.coverUrl,
     );
   }
 
@@ -64,6 +69,7 @@ class Book {
       stock: map['stock'] as int,
       genre: map['genre'] as String,
       description: map['description'] as String,
+      coverUrl: map['coverUrl'] as String? ?? '',
     );
   }
 }

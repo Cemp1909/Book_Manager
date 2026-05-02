@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
-import 'package:book_manager/caracteristicas/combos/modelos/combo_libros.dart';
-import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
+import 'package:book_manager/datos/modelos/combo_libros.dart';
+import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 

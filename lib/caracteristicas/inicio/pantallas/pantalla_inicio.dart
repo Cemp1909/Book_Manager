@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:book_manager/caracteristicas/autenticacion/modelos/usuario_app.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/roles/administrador/pantallas/pantalla_inicio_administrador.dart';
 import 'package:book_manager/roles/bodeguero/pantallas/pantalla_inicio_bodeguero.dart';
 import 'package:book_manager/roles/vendedor/pantallas/pantalla_inicio_vendedor.dart';

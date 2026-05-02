@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
-import 'package:book_manager/caracteristicas/pedidos/modelos/pedido_app.dart';
+import 'package:book_manager/datos/modelos/pedido_app.dart';
 import 'package:book_manager/caracteristicas/pedidos/componentes/hoja_detalle_pedido.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 

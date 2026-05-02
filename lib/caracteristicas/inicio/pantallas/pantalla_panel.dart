@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
-import 'package:book_manager/caracteristicas/pedidos/modelos/pedido_app.dart';
+import 'package:book_manager/datos/modelos/pedido_app.dart';
 import 'package:book_manager/caracteristicas/pedidos/componentes/hoja_detalle_pedido.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 import 'package:book_manager/compartido/componentes/accion_rapida.dart';
@@ -40,6 +40,8 @@ class DashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildHero(context, dataService),
+              const SizedBox(height: 16),
               _buildSummaryGrid(context, dataService),
               const SizedBox(height: 18),
               _buildAlerts(context, dataService),
@@ -86,6 +88,122 @@ class DashboardScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildHero(BuildContext context, TemporaryDataService dataService) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.navy,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: AppShadows.lifted(AppColors.navy),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 560;
+          final textBlock = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: const Text(
+                  'Operacion activa',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Tu editorial en movimiento',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${dataService.pendingOrders} pedidos activos y '
+                '${dataService.dispatchedOrders} despachos completados.',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          );
+          final incomeCard = Container(
+            width: isCompact ? double.infinity : 170,
+            margin: EdgeInsets.only(top: isCompact ? 16 : 0),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.auto_graph,
+                  color: AppColors.coral,
+                  size: 28,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  _compactMoney(
+                    dataService.income,
+                    dataService.settings.currencySymbol,
+                  ),
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Text(
+                  'Ingresos registrados',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          );
+
+          return isCompact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    textBlock,
+                    incomeCard,
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(child: textBlock),
+                    const SizedBox(width: 20),
+                    incomeCard,
+                  ],
+                );
+        },
+      ),
     );
   }
 
@@ -427,7 +545,8 @@ class _RecentOrderTile extends StatelessWidget {
                       color: AppColors.teal.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.shopping_cart, color: AppColors.teal),
+                    child:
+                        const Icon(Icons.shopping_cart, color: AppColors.teal),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

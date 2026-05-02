@@ -19,50 +19,72 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: MediaQuery.textScalerOf(context).scale(22).clamp(
-                        18,
-                        24,
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+        boxShadow: AppShadows.crisp(color),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: color.withValues(alpha: 0.16)),
                       ),
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.ink,
+                      child: Icon(icon, color: color, size: 21),
+                    ),
+                    const Spacer(),
+                    if (onTap != null)
+                      Icon(
+                        Icons.arrow_forward,
+                        color: color.withValues(alpha: 0.8),
+                        size: 18,
+                      ),
+                  ],
                 ),
-              ),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 14),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: MediaQuery.textScalerOf(context).scale(22).clamp(
+                          18,
+                          24,
+                        ),
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.ink,
+                  ),
                 ),
-              ),
-            ],
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

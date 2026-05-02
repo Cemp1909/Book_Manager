@@ -1,5 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:book_manager/caracteristicas/autenticacion/modelos/usuario_app.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 
 class AuthResult {
   final bool success;

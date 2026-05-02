@@ -6,6 +6,7 @@ El proyecto esta separado primero por area de la app y luego por el rol de cada 
 
 - `aplicacion`: configuracion general de la app, como tema y estilos globales.
 - `caracteristicas`: funcionalidades grandes de la app.
+- `datos`: modelos y, mas adelante, conexion con la base de datos.
 - `roles`: pantallas de entrada separadas para administrador, vendedor y bodeguero.
 - `compartido`: codigo reutilizable por varias caracteristicas.
 - `main.dart`: punto de entrada de Flutter.
@@ -14,7 +15,7 @@ El proyecto esta separado primero por area de la app y luego por el rol de cada 
 
 - `pantallas`: vistas completas que el usuario abre o navega.
 - `componentes`: partes visuales reutilizables dentro de una pantalla.
-- `modelos`: clases que representan datos, como libros, pedidos o usuarios.
+- `modelos`: clases que representan datos, como libros, pedidos o usuarios. Los modelos principales estan centralizados en `datos/modelos`.
 - `servicios`: logica para guardar, cargar, autenticar o manejar datos.
 - `tema`: colores, tipografias y estilos globales.
 
@@ -22,10 +23,10 @@ El proyecto esta separado primero por area de la app y luego por el rol de cada 
 
 - Cambios visuales de una pagina completa: busca en `pantallas`.
 - Cambios visuales de una tarjeta, fila, boton o seccion repetida: busca en `componentes`.
-- Cambios en los datos que guarda una entidad: busca en `modelos`.
+- Cambios en los datos que guarda una entidad: busca en `datos/modelos`.
 - Cambios en carga, guardado, login, base de datos o datos temporales: busca en `servicios`.
 - Cambios de colores o estilo general: busca en `aplicacion/tema`.
-- Cambios en lo que puede ver o hacer cada rol: busca en `caracteristicas/autenticacion/modelos/usuario_app.dart`.
+- Cambios en lo que puede ver o hacer cada rol: busca en `datos/modelos/usuario_app.dart`.
 - Cambios en las pestañas que aparecen para administrador: busca en `roles/administrador/pantallas/pantalla_inicio_administrador.dart`.
 - Cambios en las pestañas que aparecen para vendedor: busca en `roles/vendedor/pantallas/pantalla_inicio_vendedor.dart`.
 - Cambios en las pestañas que aparecen para bodeguero: busca en `roles/bodeguero/pantallas/pantalla_inicio_bodeguero.dart`.
@@ -38,7 +39,7 @@ Las pantallas internas importantes, como inventario, pedidos y combos, siguen en
 
 Los permisos estan en:
 
-- `caracteristicas/autenticacion/modelos/usuario_app.dart`
+- `datos/modelos/usuario_app.dart`
 
 La pantalla que decide a que inicio enviar cada usuario esta en:
 
@@ -121,3 +122,15 @@ Si quieres cambiar una pantalla para un rol especifico:
 - Login y usuario: `caracteristicas/autenticacion`.
 - Pantalla inicial y panel: `caracteristicas/inicio`.
 - Configuracion de empresa: `caracteristicas/configuracion`.
+
+## Modelos para base de datos
+
+Los modelos que representan datos de la aplicacion van en:
+
+- `datos/modelos/libro.dart`
+- `datos/modelos/combo_libros.dart`
+- `datos/modelos/pedido_app.dart`
+- `datos/modelos/configuracion_empresa.dart`
+- `datos/modelos/usuario_app.dart`
+
+Cuando se agregue la base de datos, estos modelos seran el punto de partida para mapear datos entre la app y las tablas o colecciones.

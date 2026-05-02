@@ -1,122 +1,221 @@
 import 'package:flutter/material.dart';
-import 'package:book_manager/caracteristicas/inventario/modelos/libro.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 
 class BookCard extends StatelessWidget {
   final Book book;
   final VoidCallback onTap;
   final bool showPrice;
+  final int animationIndex;
 
   const BookCard({
     super.key,
     required this.book,
     required this.onTap,
     this.showPrice = true,
+    this.animationIndex = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     final lowStockLimit = TemporaryDataService.instance.settings.lowStockLimit;
-    final isLowStock = book.stock <= lowStockLimit && book.stock > 0;
-    final isOutOfStock = book.stock == 0;
-
-    Color stockColor;
-    String stockText;
-
-    if (isOutOfStock) {
-      stockColor = Colors.red;
-      stockText = 'Agotado';
-    } else if (isLowStock) {
-      stockColor = Colors.orange;
-      stockText = 'Stock bajo: ${book.stock}';
-    } else {
-      stockColor = Colors.green;
-      stockText = 'Stock: ${book.stock}';
-    }
-
     final currency = TemporaryDataService.instance.settings.currencySymbol;
+    final isOutOfStock = book.stock == 0;
+    final isLowStock = book.stock <= lowStockLimit && book.stock > 0;
+    final statusColor = isOutOfStock
+        ? AppColors.coral
+        : isLowStock
+            ? AppColors.amber
+            : AppColors.leaf;
+    final statusText = isOutOfStock
+        ? 'Agotado'
+        : isLowStock
+            ? 'Stock bajo'
+            : 'Disponible';
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                width: 60,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withValues(alpha: 0.18)),
+        boxShadow: AppShadows.crisp(statusColor),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    color: AppColors.navy,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: AppShadows.soft(AppColors.navy),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: const _BookCover(),
                 ),
-                child: Icon(Icons.menu_book, size: 40, color: Colors.grey[400]),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      book.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        book.title,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 17,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      book.author,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'ISBN: ${book.isbn}',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                    ),
+                      const SizedBox(height: 4),
+                      Text(
+                        book.author,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        book.genre,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _MiniPill(
+                            label: statusText,
+                            icon: isOutOfStock
+                                ? Icons.remove_shopping_cart_outlined
+                                : isLowStock
+                                    ? Icons.warning_amber_outlined
+                                    : Icons.check_circle_outline,
+                            color: statusColor,
+                          ),
+                          _MiniPill(
+                            label: 'Stock ${book.stock}',
+                            icon: Icons.inventory_2_outlined,
+                            color: AppColors.teal,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (showPrice)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.teal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$currency${book.price}',
+                          style: const TextStyle(
+                            color: AppColors.tealDark,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    const Icon(Icons.chevron_right, color: AppColors.muted),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (showPrice)
-                    Text(
-                      '$currency${book.price}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  SizedBox(height: showPrice ? 4 : 0),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: stockColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      stockText,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: stockColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    ).animate(delay: (45 * animationIndex).ms).fadeIn().slideY(
+          begin: 0.08,
+          duration: 360.ms,
+          curve: Curves.easeOutCubic,
+        );
+  }
+}
+
+class _BookCover extends StatelessWidget {
+  const _BookCover();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _CoverPlaceholder();
+  }
+}
+
+class _CoverPlaceholder extends StatelessWidget {
+  const _CoverPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AppColors.navy,
+      child: Center(
+        child: Icon(Icons.menu_book, size: 38, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _MiniPill extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _MiniPill({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }

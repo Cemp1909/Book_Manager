@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
-import 'package:book_manager/caracteristicas/configuracion/modelos/configuracion_empresa.dart';
+import 'package:book_manager/datos/modelos/configuracion_empresa.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 
 class SettingsScreen extends StatefulWidget {

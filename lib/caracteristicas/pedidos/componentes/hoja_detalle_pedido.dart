@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
-import 'package:book_manager/caracteristicas/pedidos/modelos/pedido_app.dart';
+import 'package:book_manager/datos/modelos/pedido_app.dart';
 
 Future<void> showOrderDetailSheet({
   required BuildContext context,

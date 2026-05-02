@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
-import 'package:book_manager/caracteristicas/autenticacion/modelos/usuario_app.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/autenticacion/servicios/servicio_autenticacion.dart';
 
 const _companyLogoAsset = 'assets/branding/logo.jpeg';
@@ -39,39 +39,43 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 760;
+      backgroundColor: AppColors.canvas,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppGradients.aurora),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 760;
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: isWide ? 48 : 20,
-                vertical: 24,
-              ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980),
-                  child: isWide
-                      ? Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Expanded(child: _BrandPanel()),
-                            const SizedBox(width: 28),
-                            Expanded(child: _buildAuthPanel()),
-                          ],
-                        )
-                      : Column(
-                          children: [
-                            const _BrandPanel(),
-                            const SizedBox(height: 18),
-                            _buildAuthPanel(),
-                          ],
-                        ),
+              return SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isWide ? 48 : 18,
+                  vertical: 24,
                 ),
-              ),
-            );
-          },
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1100),
+                    child: isWide
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Expanded(flex: 11, child: _BrandPanel()),
+                              const SizedBox(width: 28),
+                              Expanded(flex: 9, child: _buildAuthPanel()),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              const _BrandPanel(),
+                              const SizedBox(height: 18),
+                              _buildAuthPanel(),
+                            ],
+                          ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -81,16 +85,10 @@ class _AuthScreenState extends State<AuthScreen> {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surface.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
+        border: Border.all(color: Colors.white),
+        boxShadow: AppShadows.lifted(AppColors.navy),
       ),
       child: Form(
         key: _formKey,
@@ -252,7 +250,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   : Icon(_isLogin ? Icons.login : Icons.person_add_alt_1),
               label: Text(_isLogin ? 'Entrar' : 'Crear cuenta'),
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.teal,
+                backgroundColor: AppColors.navy,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -287,7 +285,7 @@ class _AuthScreenState extends State<AuthScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.canvas,
+        color: AppColors.surfaceTint,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
@@ -314,14 +312,14 @@ class _AuthScreenState extends State<AuthScreen> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.surface : Colors.transparent,
+            gradient: isSelected ? AppGradients.action : null,
             borderRadius: BorderRadius.circular(8),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
+                      color: AppColors.teal.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
                     ),
                   ]
                 : null,
@@ -330,7 +328,7 @@ class _AuthScreenState extends State<AuthScreen> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isSelected ? AppColors.tealDark : AppColors.muted,
+              color: isSelected ? Colors.white : AppColors.muted,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -412,14 +410,17 @@ class _BrandPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.ink,
+        gradient: AppGradients.command,
         borderRadius: BorderRadius.circular(8),
+        boxShadow: AppShadows.lifted(AppColors.navy),
       ),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CompanyLogo(size: 72, darkBackground: true),
           SizedBox(height: 28),
+          _StatusBadge(),
+          SizedBox(height: 18),
           Text(
             'Editorial Manager',
             style: TextStyle(
@@ -431,13 +432,13 @@ class _BrandPanel extends StatelessWidget {
           ),
           SizedBox(height: 12),
           Text(
-            'Controla inventario, pedidos y escaneos desde un solo panel.',
+            'Controla inventario, pedidos y escaneos con una experiencia mas clara y rapida.',
             style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.45),
           ),
           SizedBox(height: 28),
           _FeaturePill(
             icon: Icons.inventory_2_outlined,
-            label: 'Inventario en tiempo real',
+            label: 'Inventario ',
           ),
           SizedBox(height: 10),
           _FeaturePill(
@@ -448,6 +449,92 @@ class _BrandPanel extends StatelessWidget {
           _FeaturePill(
             icon: Icons.local_shipping_outlined,
             label: 'Operación editorial',
+          ),
+          SizedBox(height: 24),
+          _BrandStats(),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: const Text(
+        'OPERACION EDITORIAL 360',
+        style: TextStyle(
+          color: AppColors.amber,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+class _BrandStats extends StatelessWidget {
+  const _BrandStats();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        Expanded(child: _MiniStat(value: '3', label: 'roles')),
+        SizedBox(width: 10),
+        Expanded(child: _MiniStat(value: 'QR', label: 'scanner')),
+        SizedBox(width: 10),
+        Expanded(child: _MiniStat(value: 'D3', label: 'analytics')),
+      ],
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final String value;
+  final String label;
+
+  const _MiniStat({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

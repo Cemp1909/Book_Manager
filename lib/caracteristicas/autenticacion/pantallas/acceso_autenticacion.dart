@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:book_manager/caracteristicas/autenticacion/modelos/usuario_app.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/autenticacion/pantallas/pantalla_autenticacion.dart';
 import 'package:book_manager/caracteristicas/autenticacion/servicios/servicio_autenticacion.dart';
 import 'package:book_manager/caracteristicas/inicio/pantallas/pantalla_inicio.dart';
