@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/datos/modelos/actividad_app.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
+import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 
 class AddBookScreen extends StatefulWidget {
   final Book? book;
   final String? initialIsbn;
   final bool persistOnSave;
   final bool embedded;
+  final AppUser? currentUser;
 
   const AddBookScreen({
     super.key,
@@ -16,6 +20,7 @@ class AddBookScreen extends StatefulWidget {
     this.initialIsbn,
     this.persistOnSave = false,
     this.embedded = false,
+    this.currentUser,
   });
 
   @override
@@ -302,8 +307,21 @@ class _AddBookScreenState extends State<AddBookScreen> {
         try {
           if (_isEditing) {
             await DatabaseService.instance.updateBook(book);
+            await ActivityLogService.instance.record(
+              type: ActivityType.inventory,
+              title: 'Libro actualizado',
+              detail: '${book.title} quedo con ${book.stock} unidades.',
+              actor: widget.currentUser,
+            );
           } else {
             await DatabaseService.instance.insertBook(book);
+            await ActivityLogService.instance.record(
+              type: ActivityType.inventory,
+              title: 'Libro creado',
+              detail:
+                  '${book.title} entro al inventario con ${book.stock} unidades.',
+              actor: widget.currentUser,
+            );
           }
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(

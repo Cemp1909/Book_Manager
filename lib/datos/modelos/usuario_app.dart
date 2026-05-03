@@ -54,6 +54,7 @@ class AppUser {
 
   bool get canViewDashboard => !isWarehouse;
   bool get canManageSettings => isAdministrator;
+  bool get canManageUsers => isAdministrator;
   bool get canViewInventory => true;
   bool get canManageInventory => isAdministrator;
   bool get canEditStockOnly => isWarehouse;

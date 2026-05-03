@@ -5,12 +5,16 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:lottie/lottie.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/datos/modelos/actividad_app.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/inventario/pantallas/pantalla_agregar_libro.dart';
 import 'package:book_manager/caracteristicas/inventario/pantallas/pantalla_escaner.dart';
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
+import 'package:book_manager/caracteristicas/inventario/servicios/servicio_catalogo_pdf.dart';
 import 'package:book_manager/caracteristicas/inventario/componentes/tarjeta_libro.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 
 class InventoryScreen extends StatefulWidget {
   final bool canManageInventory;
@@ -20,6 +24,7 @@ class InventoryScreen extends StatefulWidget {
   final bool canScanInventory;
   final Book? initialBookToOpen;
   final int initialBookOpenRequest;
+  final AppUser? currentUser;
 
   const InventoryScreen({
     super.key,
@@ -30,6 +35,7 @@ class InventoryScreen extends StatefulWidget {
     this.canScanInventory = true,
     this.initialBookToOpen,
     this.initialBookOpenRequest = 0,
+    this.currentUser,
   });
 
   @override
@@ -185,6 +191,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
+                      IconButton.filledTonal(
+                        onPressed: _books.isEmpty || _isLoading
+                            ? null
+                            : _showCatalogOptions,
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        tooltip: 'Compartir catalogo PDF',
+                      ),
+                      const SizedBox(width: 8),
                       if (widget.canScanInventory)
                         IconButton.filled(
                           onPressed: _scanAndSearch,
@@ -221,6 +235,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          if (!_isLoading && _hasInventoryAlerts) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildStockAlertBanner(),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (!_isLoading && _books.isNotEmpty) ...[
             AnimatedSize(
               duration: const Duration(milliseconds: 220),
@@ -316,6 +337,70 @@ class _InventoryScreenState extends State<InventoryScreen> {
               label: const Text('Agregar libro'),
             )
           : null,
+    );
+  }
+
+  bool get _hasInventoryAlerts {
+    return _books.any(
+      (book) =>
+          book.stock == 0 ||
+          (book.stock <= _dataService.settings.lowStockLimit && book.stock > 0),
+    );
+  }
+
+  Widget _buildStockAlertBanner() {
+    final lowStock = _books
+        .where(
+          (book) =>
+              book.stock <= _dataService.settings.lowStockLimit &&
+              book.stock > 0,
+        )
+        .length;
+    final outOfStock = _books.where((book) => book.stock == 0).length;
+
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          setState(() {
+            _filter = outOfStock > 0 ? 'outOfStock' : 'lowStock';
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.coral.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.notification_important_outlined,
+                  color: AppColors.coral,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '$outOfStock agotados y $lowStock con stock bajo. '
+                  'Toca para revisar prioridades.',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -931,7 +1016,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final book = await Navigator.push<Book>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddBookScreen(initialIsbn: initialIsbn),
+        builder: (context) => AddBookScreen(
+          initialIsbn: initialIsbn,
+          currentUser: widget.currentUser,
+        ),
       ),
     );
 
@@ -939,6 +1027,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     try {
       await _databaseService.insertBook(book);
+      await ActivityLogService.instance.record(
+        type: ActivityType.inventory,
+        title: 'Libro agregado',
+        detail: '${book.title} entro con ${book.stock} unidades.',
+        actor: widget.currentUser,
+      );
 
       if (!mounted) return;
 
@@ -953,16 +1047,245 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  Future<void> _showCatalogOptions() async {
+    final genres = _books.map((book) => book.genre).toSet().toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    var options = CatalogPdfOptions(includePrices: widget.showPrices);
+    var isGenerating = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.coral.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.picture_as_pdf_outlined,
+                            color: AppColors.coral,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Catalogo PDF',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                'Configura que informacion quieres compartir.',
+                                style: TextStyle(
+                                  color: AppColors.muted,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    DropdownButtonFormField<String>(
+                      initialValue: options.genre,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoria',
+                        prefixIcon: Icon(Icons.category_outlined),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('Todas las categorias'),
+                        ),
+                        ...genres.map(
+                          (genre) => DropdownMenuItem(
+                            value: genre,
+                            child: Text(genre),
+                          ),
+                        ),
+                      ],
+                      onChanged: (genre) {
+                        setSheetState(() {
+                          options = options.copyWith(
+                            genre: genre,
+                            clearGenre: genre == null,
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Solo libros disponibles'),
+                      subtitle: const Text(
+                        'Desactivalo para que tambien salgan agotados.',
+                      ),
+                      value: options.onlyAvailable,
+                      onChanged: (value) {
+                        setSheetState(() {
+                          options = options.copyWith(
+                            onlyAvailable: value,
+                            includeOutOfStock:
+                                value ? false : options.includeOutOfStock,
+                          );
+                        });
+                      },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Incluir stock bajo'),
+                      subtitle: Text(
+                        'Usa el limite actual: ${_dataService.settings.lowStockLimit} unidades.',
+                      ),
+                      value: options.includeLowStock,
+                      onChanged: (value) {
+                        setSheetState(() {
+                          options = options.copyWith(includeLowStock: value);
+                        });
+                      },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Incluir agotados'),
+                      subtitle: const Text(
+                        'Aparecen marcados como agotados en el PDF.',
+                      ),
+                      value: options.includeOutOfStock,
+                      onChanged: options.onlyAvailable
+                          ? null
+                          : (value) {
+                              setSheetState(() {
+                                options =
+                                    options.copyWith(includeOutOfStock: value);
+                              });
+                            },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Mostrar precios'),
+                      subtitle: widget.showPrices
+                          ? const Text('Incluye precio comercial.')
+                          : const Text('No disponible para este rol.'),
+                      value: options.includePrices,
+                      onChanged: widget.showPrices
+                          ? (value) {
+                              setSheetState(() {
+                                options = options.copyWith(
+                                  includePrices: value,
+                                );
+                              });
+                            }
+                          : null,
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Mostrar stock'),
+                      subtitle: const Text('Incluye unidades disponibles.'),
+                      value: options.includeStock,
+                      onChanged: (value) {
+                        setSheetState(() {
+                          options = options.copyWith(includeStock: value);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton.icon(
+                      onPressed: isGenerating
+                          ? null
+                          : () async {
+                              setSheetState(() => isGenerating = true);
+                              await _shareCatalogPdf(options);
+                              if (!mounted || !sheetContext.mounted) return;
+                              setSheetState(() => isGenerating = false);
+                              Navigator.of(sheetContext).pop();
+                            },
+                      icon: isGenerating
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.ios_share_outlined),
+                      label: const Text('Generar y compartir'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _shareCatalogPdf(CatalogPdfOptions options) async {
+    try {
+      await CatalogPdfService.instance.shareCatalog(
+        books: _books,
+        settings: _dataService.settings,
+        options: options,
+      );
+      await ActivityLogService.instance.record(
+        type: ActivityType.inventory,
+        title: 'Catalogo PDF compartido',
+        detail: 'Se genero un catalogo con filtros comerciales.',
+        actor: widget.currentUser,
+      );
+      if (!mounted) return;
+      _showMessage(context, 'Catalogo PDF listo para compartir.');
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(context, 'No se pudo generar el catalogo: $error');
+    }
+  }
+
   Future<void> _openEditBookScreen(Book book) async {
     final updatedBook = await Navigator.push<Book>(
       context,
-      MaterialPageRoute(builder: (context) => AddBookScreen(book: book)),
+      MaterialPageRoute(
+        builder: (context) => AddBookScreen(
+          book: book,
+          currentUser: widget.currentUser,
+        ),
+      ),
     );
 
     if (updatedBook == null) return;
 
     try {
       await _databaseService.updateBook(updatedBook);
+      await ActivityLogService.instance.record(
+        type: ActivityType.inventory,
+        title: 'Libro editado',
+        detail:
+            '${updatedBook.title} paso de ${book.stock} a ${updatedBook.stock} unidades.',
+        actor: widget.currentUser,
+      );
 
       if (!mounted) return;
 
@@ -1019,6 +1342,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     try {
       await _databaseService.updateBook(updatedBook);
+      await ActivityLogService.instance.record(
+        type: ActivityType.inventory,
+        title: 'Stock actualizado',
+        detail:
+            '${book.title}: ${book.stock} -> ${updatedBook.stock} unidades.',
+        actor: widget.currentUser,
+      );
       await _loadBooks();
       if (!mounted) return;
       _showMessage(context, 'Stock actualizado: ${updatedBook.stock}');
@@ -1061,6 +1391,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     try {
       await _databaseService.deleteBook(id);
+      await ActivityLogService.instance.record(
+        type: ActivityType.inventory,
+        title: 'Libro eliminado',
+        detail: '${book.title} fue retirado del inventario.',
+        actor: widget.currentUser,
+      );
 
       if (!mounted) return;
 

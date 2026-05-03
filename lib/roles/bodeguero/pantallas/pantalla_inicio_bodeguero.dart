@@ -19,10 +19,10 @@ class PantallaInicioBodeguero extends StatelessWidget {
       user: user,
       onLogout: onLogout,
       buildItems: (actions) {
-        return const [
+        return [
           ItemNavegacionRol(
             title: 'Inventario de bodega',
-            destination: NavigationDestination(
+            destination: const NavigationDestination(
               icon: Icon(Icons.inventory_2_outlined),
               selectedIcon: Icon(Icons.inventory_2),
               label: 'Inventario',
@@ -33,6 +33,7 @@ class PantallaInicioBodeguero extends StatelessWidget {
               showPrices: false,
               showFullDetails: false,
               canScanInventory: true,
+              currentUser: user,
             ),
           ),
         ];

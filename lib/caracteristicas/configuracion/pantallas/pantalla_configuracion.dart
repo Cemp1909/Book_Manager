@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/datos/modelos/actividad_app.dart';
 import 'package:book_manager/datos/modelos/configuracion_empresa.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final AppUser? currentUser;
+
+  const SettingsScreen({super.key, this.currentUser});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -113,12 +118,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    await _dataService.saveSettings(
-      CompanySettings(
-        companyName: _companyController.text.trim(),
-        currencySymbol: _currencyController.text.trim(),
-        lowStockLimit: int.parse(_lowStockController.text),
-      ),
+    final settings = CompanySettings(
+      companyName: _companyController.text.trim(),
+      currencySymbol: _currencyController.text.trim(),
+      lowStockLimit: int.parse(_lowStockController.text),
+    );
+    await _dataService.saveSettings(settings);
+    await ActivityLogService.instance.record(
+      type: ActivityType.settings,
+      title: 'Configuracion actualizada',
+      detail: 'Stock bajo quedo en ${settings.lowStockLimit} unidades.',
+      actor: widget.currentUser,
     );
 
     if (!mounted) return;

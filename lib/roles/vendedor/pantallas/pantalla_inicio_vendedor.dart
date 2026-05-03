@@ -55,6 +55,7 @@ class PantallaInicioVendedor extends StatelessWidget {
               canScanInventory: true,
               initialBookToOpen: actions.bookToOpen,
               initialBookOpenRequest: actions.bookOpenRequest,
+              currentUser: user,
             ),
           ),
           const ItemNavegacionRol(

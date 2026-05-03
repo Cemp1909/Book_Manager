@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/combos/pantallas/pantalla_combos.dart';
 import 'package:book_manager/caracteristicas/estadisticas/pantallas/pantalla_estadisticas.dart';
+import 'package:book_manager/caracteristicas/historial/pantallas/pantalla_historial.dart';
 import 'package:book_manager/caracteristicas/inicio/componentes/base_inicio_rol.dart';
 import 'package:book_manager/caracteristicas/inicio/pantallas/pantalla_biblioteca_inicio.dart';
 import 'package:book_manager/caracteristicas/inventario/pantallas/pantalla_agregar_libro.dart';
@@ -9,6 +10,7 @@ import 'package:book_manager/caracteristicas/inventario/pantallas/pantalla_inven
 import 'package:book_manager/caracteristicas/pedidos/pantallas/pantalla_despachos.dart';
 import 'package:book_manager/caracteristicas/pedidos/pantallas/pantalla_pedidos.dart';
 import 'package:book_manager/caracteristicas/perfil/pantallas/pantalla_perfil.dart';
+import 'package:book_manager/caracteristicas/usuarios/pantallas/pantalla_usuarios.dart';
 
 class PantallaInicioAdministrador extends StatelessWidget {
   final AppUser user;
@@ -57,16 +59,21 @@ class PantallaInicioAdministrador extends StatelessWidget {
               canScanInventory: true,
               initialBookToOpen: actions.bookToOpen,
               initialBookOpenRequest: actions.bookOpenRequest,
+              currentUser: user,
             ),
           ),
-          const ItemNavegacionRol(
+          ItemNavegacionRol(
             title: 'Agregar',
-            destination: NavigationDestination(
+            destination: const NavigationDestination(
               icon: Icon(Icons.add_circle_outline),
               selectedIcon: Icon(Icons.add_circle),
               label: 'Agregar',
             ),
-            screen: AddBookScreen(persistOnSave: true, embedded: true),
+            screen: AddBookScreen(
+              persistOnSave: true,
+              embedded: true,
+              currentUser: user,
+            ),
           ),
           const ItemNavegacionRol(
             title: 'Estadisticas',
@@ -107,6 +114,24 @@ class PantallaInicioAdministrador extends StatelessWidget {
               label: 'Despachos',
             ),
             screen: DispatchesScreen(canDispatchOrders: true),
+          ),
+          ItemNavegacionRol(
+            title: 'Usuarios',
+            destination: const NavigationDestination(
+              icon: Icon(Icons.manage_accounts_outlined),
+              selectedIcon: Icon(Icons.manage_accounts),
+              label: 'Usuarios',
+            ),
+            screen: UsersScreen(currentUser: user),
+          ),
+          const ItemNavegacionRol(
+            title: 'Historial',
+            destination: NavigationDestination(
+              icon: Icon(Icons.history_outlined),
+              selectedIcon: Icon(Icons.history),
+              label: 'Historial',
+            ),
+            screen: ActivityHistoryScreen(),
           ),
           ItemNavegacionRol(
             title: 'Perfil',

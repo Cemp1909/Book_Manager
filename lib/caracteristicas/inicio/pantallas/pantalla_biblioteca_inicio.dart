@@ -64,6 +64,14 @@ class _LibraryHomeScreenState extends State<LibraryHomeScreen> {
                 lowStock: lowStock,
                 outOfStock: outOfStock,
               ),
+              if (lowStock > 0 || outOfStock > 0) ...[
+                const SizedBox(height: 12),
+                _StockAlertCard(
+                  lowStock: lowStock,
+                  outOfStock: outOfStock,
+                  onTap: widget.onOpenLibrary,
+                ),
+              ],
               const SizedBox(height: 16),
               _buildActions().animate().fadeIn(delay: 120.ms).slideY(
                     begin: 0.08,
@@ -139,6 +147,62 @@ class _LibraryHomeScreenState extends State<LibraryHomeScreen> {
         );
       },
     );
+  }
+}
+
+class _StockAlertCard extends StatelessWidget {
+  final int lowStock;
+  final int outOfStock;
+  final VoidCallback? onTap;
+
+  const _StockAlertCard({
+    required this.lowStock,
+    required this.outOfStock,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.coral.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.notification_important_outlined,
+                  color: AppColors.coral,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '$outOfStock libros agotados y $lowStock con stock bajo requieren reposicion.',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+              if (onTap != null)
+                const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ),
+    ).animate().fadeIn(delay: 80.ms).slideY(begin: 0.05);
   }
 }
 

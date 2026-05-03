@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/datos/modelos/actividad_app.dart';
 import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/caracteristicas/autenticacion/servicios/servicio_autenticacion.dart';
@@ -7,6 +8,7 @@ import 'package:book_manager/caracteristicas/configuracion/pantallas/pantalla_co
 import 'package:book_manager/caracteristicas/inventario/pantallas/pantalla_escaner.dart';
 import 'package:book_manager/datos/modelos/pedido_app.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 
 class BaseInicioRol extends StatefulWidget {
   final AppUser user;
@@ -184,9 +186,13 @@ class _BaseInicioRolState extends State<BaseInicioRol> {
   }
 
   void _advanceOrder(AppOrder order) {
-    TemporaryDataService.instance.updateOrderStatus(
-      order.id,
-      _nextOrderStatus(order.status),
+    final nextStatus = _nextOrderStatus(order.status);
+    TemporaryDataService.instance.updateOrderStatus(order.id, nextStatus);
+    ActivityLogService.instance.record(
+      type: ActivityType.orders,
+      title: 'Pedido actualizado',
+      detail: 'Pedido ${order.id} paso a ${nextStatus.label}.',
+      actor: widget.user,
     );
   }
 
@@ -258,7 +264,9 @@ class _BaseInicioRolState extends State<BaseInicioRol> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const SettingsScreen(),
+                      builder: (context) => SettingsScreen(
+                        currentUser: widget.user,
+                      ),
                     ),
                   );
                 },
