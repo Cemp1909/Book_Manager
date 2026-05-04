@@ -6,6 +6,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:lottie/lottie.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/actividad_app.dart';
+import 'package:book_manager/datos/modelos/bodega_inventario.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/inventario/pantallas/pantalla_agregar_libro.dart';
@@ -14,6 +15,7 @@ import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_catalogo_pdf.dart';
 import 'package:book_manager/caracteristicas/inventario/componentes/tarjeta_libro.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
 import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -199,6 +201,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         tooltip: 'Compartir catalogo PDF',
                       ),
                       const SizedBox(width: 8),
+                      if (widget.canManageInventory ||
+                          widget.canEditStockOnly) ...[
+                        IconButton.filledTonal(
+                          onPressed: _showInventoryMovements,
+                          icon: const Icon(Icons.warehouse_outlined),
+                          tooltip: 'Bodegas y movimientos',
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       if (widget.canScanInventory)
                         IconButton.filled(
                           onPressed: _scanAndSearch,
@@ -498,7 +509,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (widget.showPrices)
         _buildSummaryPill(
           label: 'Valor',
-          value: _formatCurrency(inventoryValue),
+          value: CurrencyFormatService.compactMoney(
+            inventoryValue,
+            _dataService.settings.currencySymbol,
+          ),
           color: AppColors.leaf,
         ),
     ];
@@ -519,18 +533,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
         );
       },
     );
-  }
-
-  String _formatCurrency(int value) {
-    final currency = _dataService.settings.currencySymbol;
-    if (value >= 1000000) {
-      return '$currency${(value / 1000000).toStringAsFixed(1)}M';
-    }
-    if (value >= 1000) {
-      return '$currency${(value / 1000).toStringAsFixed(0)}K';
-    }
-
-    return '$currency$value';
   }
 
   Widget _buildSummaryPill({
@@ -620,11 +622,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: const Icon(
-                    Icons.menu_book,
-                    color: AppColors.teal,
-                    size: 38,
-                  ),
+                  child: BookCoverImage(coverUrl: book.coverUrl),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -676,8 +674,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 Expanded(
                   child: _buildMetricCard(
                     label: 'Precio',
-                    value:
-                        '${_dataService.settings.currencySymbol}${book.price}',
+                    value: CurrencyFormatService.money(
+                      book.price,
+                      _dataService.settings.currencySymbol,
+                    ),
                     icon: Icons.attach_money,
                     color: AppColors.leaf,
                   ),
@@ -700,7 +700,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
             _buildDetailRow('Estado', statusText),
             _buildDetailRow(
               'Valor en inventario',
-              '${_dataService.settings.currencySymbol}${book.price * book.stock}',
+              CurrencyFormatService.money(
+                book.price * book.stock,
+                _dataService.settings.currencySymbol,
+              ),
             ),
             const SizedBox(height: 12),
             const Text(
@@ -918,7 +921,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   void _scanAndSearch() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ScannerScreen()),
+      MaterialPageRoute(
+        builder: (context) => ScannerScreen(
+          currentUser: widget.currentUser,
+          books: _books,
+        ),
+      ),
     );
 
     if (result != null && result is String) {
@@ -1302,51 +1310,132 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Future<void> _openStockEditor(Book book) async {
     final controller = TextEditingController(text: book.stock.toString());
+    final observationController = TextEditingController();
+    var selectedWarehouse = _dataService.warehouses.first;
+    var movementType = 'ajuste';
 
     final newStock = await showDialog<int>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Actualizar stock'),
-        content: TextFormField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            labelText: 'Cantidad disponible',
-            helperText: '${book.title} - ${book.author}',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Movimiento de inventario'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<AppWarehouse>(
+                  initialValue: selectedWarehouse,
+                  decoration: const InputDecoration(
+                    labelText: 'Bodega',
+                    prefixIcon: Icon(Icons.warehouse_outlined),
+                  ),
+                  items: _dataService.warehouses
+                      .map(
+                        (warehouse) => DropdownMenuItem(
+                          value: warehouse,
+                          child: Text(warehouse.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (warehouse) {
+                    if (warehouse == null) return;
+                    setDialogState(() => selectedWarehouse = warehouse);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: movementType,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo de movimiento',
+                    prefixIcon: Icon(Icons.swap_vert),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'entrada', child: Text('Entrada')),
+                    DropdownMenuItem(value: 'salida', child: Text('Salida')),
+                    DropdownMenuItem(value: 'ajuste', child: Text('Ajuste')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setDialogState(() => movementType = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: 'Stock final',
+                    helperText: '${book.title} - actual ${book.stock}',
+                    prefixIcon: const Icon(Icons.inventory_2_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: observationController,
+                  minLines: 2,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Observacion',
+                    prefixIcon: Icon(Icons.notes_outlined),
+                  ),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final stock = int.tryParse(controller.text);
+                if (stock == null || stock < 0) return;
+                Navigator.pop(context, stock);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final stock = int.tryParse(controller.text);
-              if (stock == null || stock < 0) return;
-              Navigator.pop(context, stock);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
 
     controller.dispose();
+    final observation = observationController.text.trim();
+    observationController.dispose();
 
     if (newStock == null) return;
 
     final updatedBook = book.copyWith(stock: newStock);
+    final quantity = (newStock - book.stock).abs();
 
     try {
       await _databaseService.updateBook(updatedBook);
+      _dataService.addInventoryMovement(
+        InventoryMovementRecord(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          date: DateTime.now(),
+          movementType: movementType,
+          warehouse: selectedWarehouse,
+          user: widget.currentUser,
+          total: quantity,
+          observation: observation.isEmpty ? 'Sin observacion' : observation,
+          details: [
+            InventoryMovementDetail(
+              bookIsbn: book.isbn,
+              bookTitle: book.title,
+              quantity: quantity,
+            ),
+          ],
+        ),
+      );
       await ActivityLogService.instance.record(
         type: ActivityType.inventory,
-        title: 'Stock actualizado',
+        title: 'Movimiento de inventario',
         detail:
-            '${book.title}: ${book.stock} -> ${updatedBook.stock} unidades.',
+            '${selectedWarehouse.name}: ${book.title} ${book.stock} -> ${updatedBook.stock}.',
         actor: widget.currentUser,
       );
       await _loadBooks();
@@ -1409,6 +1498,156 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
       _showMessage(context, 'No se pudo eliminar el libro: $error');
     }
+  }
+
+  Future<void> _showInventoryMovements() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) => AnimatedBuilder(
+        animation: _dataService,
+        builder: (context, _) {
+          final movements = _dataService.inventoryMovements;
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.78,
+            minChildSize: 0.48,
+            maxChildSize: 0.94,
+            builder: (context, scrollController) => ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(20),
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Bodegas y movimientos',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    if (widget.canManageInventory)
+                      IconButton.filled(
+                        onPressed: _openWarehouseSheet,
+                        icon: const Icon(Icons.add_business_outlined),
+                        tooltip: 'Agregar bodega',
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final warehouse in _dataService.warehouses)
+                      Chip(
+                        avatar: const Icon(Icons.warehouse_outlined, size: 16),
+                        label:
+                            Text('${warehouse.name} - ${warehouse.location}'),
+                      ),
+                  ],
+                ),
+                const Divider(height: 28),
+                if (movements.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 44),
+                    child: Text(
+                      'Aun no hay movimientos registrados.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else
+                  for (final movement in movements) ...[
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.swap_vert),
+                        title: Text(
+                          '${movement.movementType} - ${movement.warehouse.name}',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        subtitle: Text(
+                          '${movement.details.map((detail) => '${detail.bookTitle} (${detail.quantity})').join(', ')}\n'
+                          '${movement.observation} - ${movement.user?.name ?? 'Sistema'}',
+                        ),
+                        isThreeLine: true,
+                        trailing: Text(
+                          _formatShortDate(movement.date),
+                          style: const TextStyle(color: AppColors.muted),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openWarehouseSheet() async {
+    final nameController = TextEditingController();
+    final locationController = TextEditingController();
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nueva bodega'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: locationController,
+              decoration: const InputDecoration(labelText: 'Ubicacion'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (nameController.text.trim().isEmpty) return;
+              _dataService.addWarehouse(
+                name: nameController.text,
+                location: locationController.text,
+              );
+              Navigator.pop(context, true);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    nameController.dispose();
+    locationController.dispose();
+    if (saved == true && mounted) {
+      _showMessage(context, 'Bodega agregada');
+    }
+  }
+
+  String _formatShortDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month';
   }
 
   void _showMessage(BuildContext context, String message) {

@@ -5,6 +5,7 @@ import 'package:book_manager/caracteristicas/pedidos/componentes/hoja_detalle_pe
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 import 'package:book_manager/compartido/componentes/accion_rapida.dart';
 import 'package:book_manager/compartido/componentes/tarjeta_resumen.dart';
+import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
 
 class DashboardScreen extends StatelessWidget {
   final VoidCallback? onNewOrder;
@@ -165,7 +166,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  _compactMoney(
+                  CurrencyFormatService.compactMoney(
                     dataService.income,
                     dataService.settings.currencySymbol,
                   ),
@@ -237,7 +238,7 @@ class DashboardScreen extends StatelessWidget {
       ),
       SummaryCard(
         title: 'Ingresos',
-        value: _compactMoney(
+        value: CurrencyFormatService.compactMoney(
             dataService.income, dataService.settings.currencySymbol),
         icon: Icons.attach_money,
         color: AppColors.coral,
@@ -350,16 +351,6 @@ class DashboardScreen extends StatelessWidget {
         );
       },
     );
-  }
-
-  String _compactMoney(int value, String currency) {
-    if (value >= 1000000) {
-      return '$currency${(value / 1000000).toStringAsFixed(1)}M';
-    }
-    if (value >= 1000) {
-      return '$currency${(value / 1000).toStringAsFixed(1)}K';
-    }
-    return '$currency$value';
   }
 
   void _showPendingOrders(
@@ -696,7 +687,7 @@ class _PendingOrderRow extends StatelessWidget {
                           style: const TextStyle(color: AppColors.muted),
                         ),
                         Text(
-                          '${order.status.label} - $currency${order.total}',
+                          '${order.status.label} - ${CurrencyFormatService.money(order.total, currency)}',
                           style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.w800,

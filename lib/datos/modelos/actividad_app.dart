@@ -3,6 +3,7 @@ enum ActivityType {
   orders,
   users,
   settings,
+  scans,
 }
 
 extension ActivityTypeX on ActivityType {
@@ -12,6 +13,7 @@ extension ActivityTypeX on ActivityType {
       ActivityType.orders => 'Pedidos',
       ActivityType.users => 'Usuarios',
       ActivityType.settings => 'Configuracion',
+      ActivityType.scans => 'Escaneos',
     };
   }
 }

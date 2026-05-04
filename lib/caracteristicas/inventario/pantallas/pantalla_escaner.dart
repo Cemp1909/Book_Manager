@@ -1,9 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:vibration/vibration.dart';
+import 'package:book_manager/datos/modelos/actividad_app.dart';
+import 'package:book_manager/datos/modelos/libro.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
+import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 
 class ScannerScreen extends StatefulWidget {
-  const ScannerScreen({super.key});
+  final AppUser? currentUser;
+  final List<Book> books;
+
+  const ScannerScreen({
+    super.key,
+    this.currentUser,
+    this.books = const [],
+  });
 
   @override
   State<ScannerScreen> createState() => _ScannerScreenState();
@@ -268,15 +280,50 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     if (!mounted) return;
 
+    final book = _findBookByCode(code);
+    final result = book == null ? 'No encontrado' : 'Libro: ${book.title}';
+    final codeType = _detectCodeType(code);
+
+    TemporaryDataService.instance.addScanLog(
+      code: code,
+      codeType: codeType,
+      result: result,
+      user: widget.currentUser,
+      bookIsbn: book?.isbn,
+      bookTitle: book?.title,
+    );
+    ActivityLogService.instance.record(
+      type: ActivityType.scans,
+      title: 'Escaneo registrado',
+      detail: '$codeType - $result',
+      actor: widget.currentUser,
+    );
+
     setState(() {
       _scanHistory.insert(0, {
         'code': code,
         'date': DateTime.now(),
-        'type': _detectCodeType(code),
+        'type': codeType,
+        'result': result,
       });
     });
 
-    _showResultDialog(code);
+    _showResultDialog(code, result);
+  }
+
+  Book? _findBookByCode(String code) {
+    final normalizedCode = code.toLowerCase().replaceAll(
+          RegExp(r'[^a-z0-9]'),
+          '',
+        );
+    for (final book in widget.books) {
+      final normalizedIsbn = book.isbn.toLowerCase().replaceAll(
+            RegExp(r'[^a-z0-9]'),
+            '',
+          );
+      if (normalizedIsbn == normalizedCode) return book;
+    }
+    return null;
   }
 
   String _detectCodeType(String code) {
@@ -291,7 +338,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
-  void _showResultDialog(String code) {
+  void _showResultDialog(String code, String result) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -333,6 +380,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            Text(
+              result,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
             const Text(
               '¿Qué deseas hacer?',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -360,6 +412,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   void _showHistory() {
+    final scanLogs = TemporaryDataService.instance.scanLogs;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -376,7 +429,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const Divider(),
-            if (_scanHistory.isEmpty)
+            if (scanLogs.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(40),
                 child: Text('No hay escaneos recientes'),
@@ -384,46 +437,29 @@ class _ScannerScreenState extends State<ScannerScreen> {
             else
               ListView.builder(
                 shrinkWrap: true,
-                itemCount: _scanHistory.length,
+                itemCount: scanLogs.length,
                 itemBuilder: (context, index) {
-                  final item = _scanHistory[index];
+                  final item = scanLogs[index];
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.blue[100],
                       child: Icon(
-                        _getTypeIcon(item['type']),
+                        _getTypeIcon(item.codeType),
                         color: Colors.blue,
                       ),
                     ),
                     title: Text(
-                      item['code'],
+                      item.code,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      '${item['type']} - ${_formatDate(item['date'])}',
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () {
-                        setState(() {
-                          _scanHistory.removeAt(index);
-                        });
-                      },
+                      '${item.codeType} - ${item.result} - ${item.user?.name ?? 'Sistema'} - ${_formatDate(item.dateTime)}',
                     ),
                   );
                 },
               ),
             const SizedBox(height: 10),
-            if (_scanHistory.isNotEmpty)
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _scanHistory.clear();
-                  });
-                },
-                child: const Text('Limpiar historial'),
-              ),
           ],
         ),
       ),

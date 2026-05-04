@@ -89,14 +89,17 @@ class PantallaInicioVendedor extends StatelessWidget {
               canAdvanceOrders: true,
             ),
           ),
-          const ItemNavegacionRol(
+          ItemNavegacionRol(
             title: 'Despachos',
-            destination: NavigationDestination(
+            destination: const NavigationDestination(
               icon: Icon(Icons.local_shipping_outlined),
               selectedIcon: Icon(Icons.local_shipping),
               label: 'Despachos',
             ),
-            screen: DispatchesScreen(canDispatchOrders: false),
+            screen: DispatchesScreen(
+              canDispatchOrders: false,
+              currentUser: user,
+            ),
           ),
           ItemNavegacionRol(
             title: 'Perfil',

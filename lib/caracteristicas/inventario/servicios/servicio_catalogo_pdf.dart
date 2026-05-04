@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:book_manager/datos/modelos/configuracion_empresa.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
+import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -422,10 +423,6 @@ class CatalogPdfService {
   }
 
   String _money(int value, String currency) {
-    final formatted = value.toString().replaceAllMapped(
-          RegExp(r'\B(?=(\d{3})+(?!\d))'),
-          (_) => '.',
-        );
-    return '$currency $formatted';
+    return CurrencyFormatService.money(value, currency);
   }
 }

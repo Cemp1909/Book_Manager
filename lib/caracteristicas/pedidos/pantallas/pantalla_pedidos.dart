@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/combo_libros.dart';
+import 'package:book_manager/datos/modelos/cliente_escolar.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
 import 'package:book_manager/datos/modelos/pedido_app.dart';
 import 'package:book_manager/caracteristicas/pedidos/componentes/hoja_detalle_pedido.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
 
 class OrdersScreen extends StatefulWidget {
   final bool canCreateOrders;
@@ -133,19 +135,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return;
     }
 
-    final customerController = TextEditingController(
-      text: initialOrder?.customer ?? '',
-    );
-    final addressController = TextEditingController(
-      text: initialOrder?.deliveryAddress == 'Pendiente por confirmar'
-          ? ''
-          : initialOrder?.deliveryAddress ?? '',
-    );
-    final combos = _dataService.buildCombos(_books);
-    final products = [
-      for (final book in _books) _OrderProduct.book(book),
-      for (final combo in combos) _OrderProduct.combo(combo),
-    ];
+    final initialSchool = _schoolForOrder(initialOrder);
+    var selectedCityId = initialSchool.cityId;
+    var selectedSchoolId = initialSchool.id;
     final draftItems = initialOrder == null
         ? <OrderItem>[]
         : initialOrder.items
@@ -159,7 +151,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ),
             )
             .toList();
-    var selectedProduct = products.first;
+    var selectedProduct = _productsForSchool(selectedSchoolId).first;
     int quantity = 1;
 
     final savedOrder = await showModalBottomSheet<AppOrder>(
@@ -175,6 +167,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
               0,
               (sum, item) => sum + item.total,
             );
+            final school = _dataService.schoolById(selectedSchoolId) ??
+                _dataService.schools.first;
+            final city = _dataService.cityById(selectedCityId);
+            final products = _productsForSchool(selectedSchoolId);
+            if (!products.contains(selectedProduct)) {
+              selectedProduct = products.first;
+            }
             final lineTotal = selectedProduct.unitPrice * quantity;
 
             return DraggableScrollableSheet(
@@ -199,19 +198,81 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: customerController,
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedCityId,
                     decoration: const InputDecoration(
-                      labelText: 'Cliente o colegio',
-                      prefixIcon: Icon(Icons.school_outlined),
+                      labelText: 'Ciudad',
+                      prefixIcon: Icon(Icons.location_city_outlined),
                     ),
+                    items: _dataService.cities
+                        .map(
+                          (city) => DropdownMenuItem(
+                            value: city.id,
+                            child: Text(city.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (cityId) {
+                      if (cityId == null) return;
+                      final schools = _dataService.schoolsForCity(cityId);
+                      setSheetState(() {
+                        selectedCityId = cityId;
+                        selectedSchoolId = schools.first.id;
+                        selectedProduct =
+                            _productsForSchool(selectedSchoolId).first;
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: addressController,
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedSchoolId,
                     decoration: const InputDecoration(
-                      labelText: 'Direccion de entrega',
-                      prefixIcon: Icon(Icons.location_on_outlined),
+                      labelText: 'Colegio',
+                      prefixIcon: Icon(Icons.school_outlined),
+                    ),
+                    items: _dataService
+                        .schoolsForCity(selectedCityId)
+                        .map(
+                          (school) => DropdownMenuItem(
+                            value: school.id,
+                            child: Text(school.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (schoolId) {
+                      if (schoolId == null) return;
+                      setSheetState(() {
+                        selectedSchoolId = schoolId;
+                        selectedProduct =
+                            _productsForSchool(selectedSchoolId).first;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.canvas,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          color: AppColors.teal,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${city?.name ?? 'Ciudad'} - ${school.address}',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -342,20 +403,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   const SizedBox(height: 18),
                   FilledButton(
                     onPressed: () {
-                      final customer = customerController.text.trim();
-                      if (customer.isEmpty || draftItems.isEmpty) return;
+                      if (draftItems.isEmpty) return;
 
                       Navigator.pop(
                         context,
                         AppOrder(
                           id: initialOrder?.id ??
                               DateTime.now().millisecondsSinceEpoch.toString(),
-                          customer: customer,
+                          customer: school.name,
                           date: initialOrder?.date ?? DateTime.now(),
                           status: initialOrder?.status ?? OrderStatus.pending,
-                          deliveryAddress: addressController.text.trim().isEmpty
-                              ? 'Pendiente por confirmar'
-                              : addressController.text.trim(),
+                          deliveryAddress: school.address,
                           items: List.unmodifiable(draftItems),
                         ),
                       );
@@ -374,9 +432,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
       },
     );
 
-    customerController.dispose();
-    addressController.dispose();
-
     if (savedOrder == null) return;
 
     if (initialOrder == null) {
@@ -387,6 +442,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     _dataService.updateOrder(savedOrder);
     _message('Pedido actualizado para ${savedOrder.customer}');
+  }
+
+  List<_OrderProduct> _productsForSchool(String schoolId) {
+    final combos = _dataService.buildCombos(_books, schoolId: schoolId);
+    return [
+      for (final book in _books)
+        _OrderProduct.book(
+          book,
+          unitPrice: _dataService.priceForBook(book: book, schoolId: schoolId),
+        ),
+      for (final combo in combos) _OrderProduct.combo(combo),
+    ];
+  }
+
+  SchoolCustomer _schoolForOrder(AppOrder? order) {
+    if (order != null) {
+      for (final school in _dataService.schools) {
+        if (school.name == order.customer) return school;
+      }
+    }
+    return _dataService.schools.first;
   }
 
   void _advanceOrder(AppOrder order) {
@@ -402,7 +478,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
     _message('Pedido #${order.id}: ${nextStatus.label}');
   }
 
-  String _money(int value) => '${_dataService.settings.currencySymbol}$value';
+  String _money(int value) {
+    return CurrencyFormatService.money(
+      value,
+      _dataService.settings.currencySymbol,
+    );
+  }
 
   void _message(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -468,7 +549,7 @@ class _OrderCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${order.itemCount} unidades - $currency${order.total}',
+                '${order.itemCount} unidades - ${CurrencyFormatService.money(order.total, currency)}',
                 style: const TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 12),
@@ -519,11 +600,11 @@ class _OrderProduct {
     required this.isCombo,
   });
 
-  factory _OrderProduct.book(Book book) {
+  factory _OrderProduct.book(Book book, {int? unitPrice}) {
     return _OrderProduct(
       title: book.title,
       subtitle: book.author,
-      unitPrice: book.price,
+      unitPrice: unitPrice ?? book.price,
       isCombo: false,
     );
   }
@@ -531,13 +612,25 @@ class _OrderProduct {
   factory _OrderProduct.combo(BookCombo combo) {
     return _OrderProduct(
       title: combo.name,
-      subtitle: '${combo.books.length} libros - ${combo.discountPercent}% off',
+      subtitle: '${combo.schoolName} - ${combo.books.length} libros',
       unitPrice: combo.total,
       isCombo: true,
     );
   }
 
-  String get label => isCombo ? 'Combo: $title' : 'Libro: $title';
+  String get label => isCombo ? 'Combo: $title ($subtitle)' : 'Libro: $title';
+
+  @override
+  bool operator ==(Object other) {
+    return other is _OrderProduct &&
+        other.title == title &&
+        other.subtitle == subtitle &&
+        other.unitPrice == unitPrice &&
+        other.isCombo == isCombo;
+  }
+
+  @override
+  int get hashCode => Object.hash(title, subtitle, unitPrice, isCombo);
 }
 
 class _DraftOrderItem extends StatelessWidget {

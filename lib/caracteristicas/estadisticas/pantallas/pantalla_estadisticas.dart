@@ -7,6 +7,7 @@ import 'package:book_manager/caracteristicas/estadisticas/componentes/d3_chart_d
 import 'package:book_manager/caracteristicas/estadisticas/componentes/d3_chart_view.dart';
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
 
 class StatisticsScreen extends StatelessWidget {
   const StatisticsScreen({super.key});
@@ -63,13 +64,19 @@ class StatisticsScreen extends StatelessWidget {
                     ),
                     _MetricInfo(
                       label: 'Valor libros',
-                      value: _compactMoney(inventoryValue, currency),
+                      value: CurrencyFormatService.compactMoney(
+                        inventoryValue,
+                        currency,
+                      ),
                       icon: Icons.inventory_2_outlined,
                       color: AppColors.violet,
                     ),
                     _MetricInfo(
                       label: 'Ingresos',
-                      value: _compactMoney(dataService.income, currency),
+                      value: CurrencyFormatService.compactMoney(
+                        dataService.income,
+                        currency,
+                      ),
                       icon: Icons.payments_outlined,
                       color: AppColors.coral,
                     ),
@@ -260,6 +267,8 @@ class StatisticsScreen extends StatelessWidget {
   }
 
   List<D3ChartDatum> _orderValueByStatus(List<AppOrder> orders) {
+    final currency = TemporaryDataService.instance.settings.currencySymbol;
+
     int total(OrderStatus status) {
       return orders
           .where((order) => order.status == status)
@@ -271,25 +280,29 @@ class StatisticsScreen extends StatelessWidget {
         label: 'Pendiente',
         value: total(OrderStatus.pending),
         color: _hex(AppColors.amber),
-        detail: 'Valor que aun no ha iniciado preparacion.',
+        detail:
+            '${CurrencyFormatService.money(total(OrderStatus.pending), currency)} aun no ha iniciado preparacion.',
       ),
       D3ChartDatum(
         label: 'Preparando',
         value: total(OrderStatus.preparing),
         color: _hex(AppColors.sky),
-        detail: 'Valor que esta en proceso operativo.',
+        detail:
+            '${CurrencyFormatService.money(total(OrderStatus.preparing), currency)} esta en proceso operativo.',
       ),
       D3ChartDatum(
         label: 'Listo',
         value: total(OrderStatus.ready),
         color: _hex(AppColors.violet),
-        detail: 'Valor listo para convertirse en despacho.',
+        detail:
+            '${CurrencyFormatService.money(total(OrderStatus.ready), currency)} listo para convertirse en despacho.',
       ),
       D3ChartDatum(
         label: 'Despachado',
         value: total(OrderStatus.dispatched),
         color: _hex(AppColors.leaf),
-        detail: 'Valor ya entregado dentro del flujo.',
+        detail:
+            '${CurrencyFormatService.money(total(OrderStatus.dispatched), currency)} ya entregado dentro del flujo.',
       ),
     ];
   }
@@ -304,7 +317,20 @@ class StatisticsScreen extends StatelessWidget {
       );
     }
 
-    return _sortedData(values, AppColors.violet);
+    final currency = TemporaryDataService.instance.settings.currencySymbol;
+    final entries = values.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return [
+      for (final entry in entries.take(6))
+        D3ChartDatum(
+          label: entry.key,
+          value: entry.value,
+          color: _hex(AppColors.violet),
+          detail:
+              'Aporta ${CurrencyFormatService.money(entry.value, currency)} al valor del inventario.',
+        ),
+    ];
   }
 
   List<D3ChartDatum> _stockByCategory(List<Book> books) {
@@ -354,6 +380,7 @@ class StatisticsScreen extends StatelessWidget {
   }
 
   List<D3ChartDatum> _priceStockBubbles(List<Book> books) {
+    final currency = TemporaryDataService.instance.settings.currencySymbol;
     return [
       for (final book in books.take(8))
         D3ChartDatum(
@@ -367,7 +394,7 @@ class StatisticsScreen extends StatelessWidget {
                   ? _hex(AppColors.amber)
                   : _hex(AppColors.teal),
           detail:
-              'Precio ${book.price}, stock ${book.stock}, valor ${book.price * book.stock}.',
+              'Precio ${CurrencyFormatService.money(book.price, currency)}, stock ${book.stock}, valor ${CurrencyFormatService.money(book.price * book.stock, currency)}.',
         ),
     ];
   }
@@ -385,17 +412,6 @@ class StatisticsScreen extends StatelessWidget {
           detail: 'Aporta ${entry.value} al total de esta metrica.',
         ),
     ];
-  }
-
-  String _compactMoney(int value, String currency) {
-    if (value >= 1000000) {
-      return '$currency${(value / 1000000).toStringAsFixed(1)}M';
-    }
-    if (value >= 1000) {
-      return '$currency${(value / 1000).toStringAsFixed(0)}K';
-    }
-
-    return '$currency$value';
   }
 
   String _hex(Color color) {

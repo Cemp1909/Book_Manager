@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/pedido_app.dart';
+import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
+import 'package:book_manager/compartido/servicios/servicio_mapas.dart';
 
 Future<void> showOrderDetailSheet({
   required BuildContext context,
@@ -39,6 +42,26 @@ Future<void> showOrderDetailSheet({
           const SizedBox(height: 10),
           _InfoRow(label: 'Cliente', value: order.customer),
           _InfoRow(label: 'Direccion', value: order.deliveryAddress),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final opened = await MapService.openAddress(
+                  address: order.deliveryAddress,
+                  city: _cityNameForOrder(order),
+                  label: order.customer,
+                );
+                if (!opened && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('No se pudo abrir el mapa')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('Abrir mapa'),
+            ),
+          ),
           _InfoRow(label: 'Estado', value: order.status.label),
           _InfoRow(label: 'Unidades', value: order.itemCount.toString()),
           const Divider(height: 28),
@@ -59,7 +82,7 @@ Future<void> showOrderDetailSheet({
                 ),
               ),
               Text(
-                '$currency${order.total}',
+                CurrencyFormatService.money(order.total, currency),
                 style: const TextStyle(
                   color: AppColors.tealDark,
                   fontSize: 22,
@@ -72,6 +95,16 @@ Future<void> showOrderDetailSheet({
       ),
     ),
   );
+}
+
+String? _cityNameForOrder(AppOrder order) {
+  final dataService = TemporaryDataService.instance;
+  for (final school in dataService.schools) {
+    if (school.name.toLowerCase() == order.customer.toLowerCase()) {
+      return dataService.cityById(school.cityId)?.name;
+    }
+  }
+  return null;
 }
 
 class _OrderLine extends StatelessWidget {
@@ -117,7 +150,7 @@ class _OrderLine extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 Text(
-                  '${item.quantity} x $currency${item.unitPrice} - ${item.subtitle}',
+                  '${item.quantity} x ${CurrencyFormatService.money(item.unitPrice, currency)} - ${item.subtitle}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -130,7 +163,7 @@ class _OrderLine extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            '$currency${item.total}',
+            CurrencyFormatService.money(item.total, currency),
             style: const TextStyle(fontWeight: FontWeight.w900),
           ),
         ],

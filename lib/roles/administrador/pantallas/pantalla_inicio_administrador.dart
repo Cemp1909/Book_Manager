@@ -106,14 +106,15 @@ class PantallaInicioAdministrador extends StatelessWidget {
               canAdvanceOrders: true,
             ),
           ),
-          const ItemNavegacionRol(
+          ItemNavegacionRol(
             title: 'Despachos',
-            destination: NavigationDestination(
+            destination: const NavigationDestination(
               icon: Icon(Icons.local_shipping_outlined),
               selectedIcon: Icon(Icons.local_shipping),
               label: 'Despachos',
             ),
-            screen: DispatchesScreen(canDispatchOrders: true),
+            screen:
+                DispatchesScreen(canDispatchOrders: true, currentUser: user),
           ),
           ItemNavegacionRol(
             title: 'Usuarios',

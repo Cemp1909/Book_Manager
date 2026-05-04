@@ -181,7 +181,9 @@ class _BaseInicioRolState extends State<BaseInicioRol> {
   void _openScanner() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ScannerScreen()),
+      MaterialPageRoute(
+        builder: (context) => ScannerScreen(currentUser: widget.user),
+      ),
     );
   }
 

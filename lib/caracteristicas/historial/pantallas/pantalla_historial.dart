@@ -268,6 +268,7 @@ IconData _iconForType(ActivityType type) {
     ActivityType.orders => Icons.shopping_cart_outlined,
     ActivityType.users => Icons.manage_accounts_outlined,
     ActivityType.settings => Icons.settings_outlined,
+    ActivityType.scans => Icons.qr_code_scanner,
   };
 }
 
@@ -277,6 +278,7 @@ Color _colorForType(ActivityType type) {
     ActivityType.orders => AppColors.amber,
     ActivityType.users => AppColors.navy,
     ActivityType.settings => AppColors.leaf,
+    ActivityType.scans => AppColors.violet,
   };
 }
 

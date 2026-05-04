@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/actividad_app.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/datos/modelos/usuario_app.dart';
+import 'package:book_manager/caracteristicas/inventario/componentes/tarjeta_libro.dart';
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
 import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 
@@ -36,6 +40,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
   final _stockController = TextEditingController();
   final _genreController = TextEditingController();
   final _descriptionController = TextEditingController();
+  String _coverUrl = '';
   bool _isSaving = false;
 
   bool get _isEditing => widget.book != null;
@@ -53,6 +58,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
       _stockController.text = book.stock.toString();
       _genreController.text = book.genre;
       _descriptionController.text = book.description;
+      _coverUrl = book.coverUrl;
       return;
     }
 
@@ -70,19 +76,43 @@ class _AddBookScreenState extends State<AddBookScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Center(
-            child: Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                gradient: AppGradients.command,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: AppShadows.lifted(AppColors.navy),
-              ),
-              child: Icon(
-                _isEditing ? Icons.edit_note : Icons.menu_book,
-                size: 44,
-                color: Colors.white,
-              ),
+            child: Column(
+              children: [
+                Container(
+                  width: 96,
+                  height: 124,
+                  decoration: BoxDecoration(
+                    color: AppColors.navy,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: AppShadows.lifted(AppColors.navy),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: BookCoverImage(coverUrl: _coverUrl, iconSize: 44),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _isSaving ? null : _takeBookPhoto,
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      label: const Text('Tomar foto'),
+                    ),
+                    if (_coverUrl.isNotEmpty)
+                      OutlinedButton.icon(
+                        onPressed: _isSaving
+                            ? null
+                            : () => setState(() {
+                                  _coverUrl = '';
+                                }),
+                        icon: const Icon(Icons.close),
+                        label: const Text('Quitar'),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
@@ -97,7 +127,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Datos comerciales y disponibilidad en inventario.',
+            'Datos comerciales, disponibilidad e imagen visual.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.muted,
@@ -298,6 +328,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
         stock: int.parse(_stockController.text),
         genre: _genreController.text.trim(),
         description: _descriptionController.text.trim(),
+        coverUrl: _coverUrl,
       );
 
       if (widget.persistOnSave) {
@@ -356,6 +387,33 @@ class _AddBookScreenState extends State<AddBookScreen> {
     _stockController.clear();
     _genreController.clear();
     _descriptionController.clear();
+    setState(() {
+      _coverUrl = '';
+    });
+  }
+
+  Future<void> _takeBookPhoto() async {
+    try {
+      final pickedImage = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1200,
+        imageQuality: 78,
+      );
+      if (pickedImage == null) return;
+
+      final bytes = await pickedImage.readAsBytes();
+      final mimeType = pickedImage.mimeType ?? 'image/jpeg';
+      if (!mounted) return;
+
+      setState(() {
+        _coverUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo tomar la foto: $error')),
+      );
+    }
   }
 
   @override

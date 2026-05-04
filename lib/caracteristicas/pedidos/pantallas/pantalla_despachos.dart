@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
+import 'package:book_manager/datos/modelos/actividad_app.dart';
+import 'package:book_manager/datos/modelos/bodega_inventario.dart';
+import 'package:book_manager/datos/modelos/devolucion_app.dart';
+import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/datos/modelos/pedido_app.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
+import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
 import 'package:book_manager/caracteristicas/pedidos/componentes/hoja_detalle_pedido.dart';
+import 'package:book_manager/caracteristicas/pedidos/servicios/servicio_remision_pdf.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
+import 'package:book_manager/compartido/servicios/servicio_historial.dart';
+import 'package:book_manager/compartido/servicios/servicio_mapas.dart';
 
 class DispatchesScreen extends StatelessWidget {
   final bool canDispatchOrders;
+  final AppUser? currentUser;
 
   const DispatchesScreen({
     super.key,
     this.canDispatchOrders = true,
+    this.currentUser,
   });
 
   @override
@@ -42,7 +54,8 @@ class DispatchesScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        '${dispatches.length} despachos en seguimiento',
+                        '${dispatches.length} despachos en seguimiento'
+                        ' - ${dataService.returnCount} devoluciones',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
@@ -79,6 +92,10 @@ class DispatchesScreen extends StatelessWidget {
                           );
                         }
                       : null,
+                  onShareGuide: () => _shareDispatchGuide(context, order),
+                  onReturn: order.status == OrderStatus.dispatched
+                      ? () => _openReturnSheet(context, order)
+                      : null,
                 ),
                 const SizedBox(height: 12),
               ],
@@ -87,6 +104,276 @@ class DispatchesScreen extends StatelessWidget {
       },
     );
   }
+
+  Future<void> _shareDispatchGuide(
+    BuildContext context,
+    AppOrder order,
+  ) async {
+    try {
+      await DispatchPdfService.instance.shareDispatchGuide(
+        order: order,
+        settings: TemporaryDataService.instance.settings,
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo generar la remision: $error')),
+      );
+    }
+  }
+
+  Future<void> _openReturnSheet(BuildContext context, AppOrder order) async {
+    final reasonController = TextEditingController();
+    var selectedItem = order.items.first;
+    var quantity = 1;
+    var restock = false;
+
+    final record = await showModalBottomSheet<ReturnRecord>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.viewInsetsOf(context).bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Registrar devolucion #${order.id}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<OrderItem>(
+                  initialValue: selectedItem,
+                  decoration: const InputDecoration(
+                    labelText: 'Producto devuelto',
+                    prefixIcon: Icon(Icons.assignment_return_outlined),
+                  ),
+                  items: order.items
+                      .map(
+                        (item) => DropdownMenuItem(
+                          value: item,
+                          child: Text(
+                            item.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (item) {
+                    if (item == null) return;
+                    setSheetState(() {
+                      selectedItem = item;
+                      quantity = 1;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    IconButton.outlined(
+                      onPressed: quantity == 1
+                          ? null
+                          : () => setSheetState(() => quantity--),
+                      icon: const Icon(Icons.remove),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          '$quantity de ${selectedItem.quantity} unidades',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    IconButton.filled(
+                      onPressed: quantity >= selectedItem.quantity
+                          ? null
+                          : () => setSheetState(() => quantity++),
+                      icon: const Icon(Icons.add),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: reasonController,
+                  minLines: 3,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo',
+                    prefixIcon: Icon(Icons.notes_outlined),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: restock,
+                  title: const Text('Marcar como reintegrable'),
+                  subtitle: const Text(
+                    'Deja constancia para ajustar stock si corresponde.',
+                  ),
+                  onChanged: (value) => setSheetState(() => restock = value),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () {
+                    final reason = reasonController.text.trim();
+                    if (reason.isEmpty) return;
+
+                    Navigator.pop(
+                      context,
+                      ReturnRecord(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        orderId: order.id,
+                        customer: order.customer,
+                        itemTitle: selectedItem.title,
+                        quantity: quantity,
+                        reason: reason,
+                        restock: restock,
+                        date: DateTime.now(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.assignment_return_outlined),
+                  label: const Text('Guardar devolucion'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    reasonController.dispose();
+    if (record == null) return;
+    if (!context.mounted) return;
+
+    TemporaryDataService.instance.addReturn(record);
+    if (record.restock) {
+      await _restockReturnedItem(
+        context: context,
+        item: selectedItem,
+        quantity: record.quantity,
+        reason: record.reason,
+      );
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          record.restock
+              ? 'Devolucion registrada y stock reintegrado'
+              : 'Devolucion registrada: ${record.quantity} x ${record.itemTitle}',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restockReturnedItem({
+    required BuildContext context,
+    required OrderItem item,
+    required int quantity,
+    required String reason,
+  }) async {
+    try {
+      final books = await DatabaseService.instance.getBooks();
+      final returnedBooks = item.isCombo
+          ? _booksForCombo(item.title, books)
+          : _booksForItem(item, books);
+
+      if (returnedBooks.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Devolucion guardada, pero no se encontro stock para ${item.title}'),
+          ),
+        );
+        return;
+      }
+
+      final movementDetails = <InventoryMovementDetail>[];
+      for (final book in returnedBooks) {
+        if (book.id == null) continue;
+        final updatedBook = book.copyWith(stock: book.stock + quantity);
+        await DatabaseService.instance.updateBook(updatedBook);
+        movementDetails.add(
+          InventoryMovementDetail(
+            bookIsbn: book.isbn,
+            bookTitle: book.title,
+            quantity: quantity,
+          ),
+        );
+      }
+
+      if (movementDetails.isEmpty) return;
+
+      final dataService = TemporaryDataService.instance;
+      final warehouse = dataService.warehouses.first;
+      dataService.addInventoryMovement(
+        InventoryMovementRecord(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          date: DateTime.now(),
+          movementType: 'entrada',
+          warehouse: warehouse,
+          user: currentUser,
+          total:
+              movementDetails.fold(0, (sum, detail) => sum + detail.quantity),
+          observation: 'Devolucion reintegrada: $reason',
+          details: movementDetails,
+        ),
+      );
+      await ActivityLogService.instance.record(
+        type: ActivityType.inventory,
+        title: 'Devolucion reintegrada',
+        detail:
+            '${item.title}: ${movementDetails.length} referencia(s), $quantity unidad(es).',
+        actor: currentUser,
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Devolucion guardada, pero no se reintegro stock: $error')),
+      );
+    }
+  }
+
+  List<Book> _booksForItem(OrderItem item, List<Book> books) {
+    return books
+        .where(
+          (book) =>
+              book.title.toLowerCase() == item.title.toLowerCase() &&
+              book.author.toLowerCase() == item.subtitle.toLowerCase(),
+        )
+        .toList();
+  }
+
+  List<Book> _booksForCombo(String comboName, List<Book> books) {
+    final combos = TemporaryDataService.instance.buildCombos(books);
+    for (final combo in combos) {
+      if (combo.name.toLowerCase() == comboName.toLowerCase()) {
+        return combo.books;
+      }
+    }
+    return const [];
+  }
 }
 
 class _DispatchCard extends StatelessWidget {
@@ -94,12 +381,16 @@ class _DispatchCard extends StatelessWidget {
   final String currency;
   final VoidCallback onTap;
   final VoidCallback? onDispatch;
+  final VoidCallback onShareGuide;
+  final VoidCallback? onReturn;
 
   const _DispatchCard({
     required this.order,
     required this.currency,
     required this.onTap,
+    required this.onShareGuide,
     this.onDispatch,
+    this.onReturn,
   });
 
   @override
@@ -146,15 +437,55 @@ class _DispatchCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${order.deliveryAddress} - $currency${order.total}',
+                      '${order.deliveryAddress} - ${CurrencyFormatService.money(order.total, currency)}',
                       style: const TextStyle(color: AppColors.muted),
                     ),
                     const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: dispatched ? null : onDispatch,
-                      icon: Icon(dispatched ? Icons.done : Icons.send_outlined),
-                      label:
-                          Text(dispatched ? 'Despachado' : 'Marcar despacho'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: dispatched ? null : onDispatch,
+                          icon: Icon(
+                            dispatched ? Icons.done : Icons.send_outlined,
+                          ),
+                          label: Text(
+                            dispatched ? 'Despachado' : 'Marcar despacho',
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: onShareGuide,
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: const Text('Remision'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final opened = await MapService.openAddress(
+                              address: order.deliveryAddress,
+                              city: _cityNameForOrder(order),
+                              label: order.customer,
+                            );
+                            if (!opened && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('No se pudo abrir el mapa'),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.map_outlined),
+                          label: const Text('Mapa'),
+                        ),
+                        if (onReturn != null)
+                          OutlinedButton.icon(
+                            onPressed: onReturn,
+                            icon: const Icon(
+                              Icons.assignment_return_outlined,
+                            ),
+                            label: const Text('Devolucion'),
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -166,6 +497,16 @@ class _DispatchCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _cityNameForOrder(AppOrder order) {
+  final dataService = TemporaryDataService.instance;
+  for (final school in dataService.schools) {
+    if (school.name.toLowerCase() == order.customer.toLowerCase()) {
+      return dataService.cityById(school.cityId)?.name;
+    }
+  }
+  return null;
 }
 
 class _EmptyDispatches extends StatelessWidget {

@@ -1,8 +1,12 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
 
 class BookCard extends StatelessWidget {
   final Book book;
@@ -61,7 +65,7 @@ class BookCard extends StatelessWidget {
                     boxShadow: AppShadows.soft(AppColors.navy),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: const _BookCover(),
+                  child: BookCoverImage(coverUrl: book.coverUrl),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -135,7 +139,7 @@ class BookCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          '$currency${book.price}',
+                          CurrencyFormatService.money(book.price, currency),
                           style: const TextStyle(
                             color: AppColors.tealDark,
                             fontSize: 14,
@@ -160,24 +164,62 @@ class BookCard extends StatelessWidget {
   }
 }
 
-class _BookCover extends StatelessWidget {
-  const _BookCover();
+class BookCoverImage extends StatelessWidget {
+  final String coverUrl;
+  final double iconSize;
+
+  const BookCoverImage({
+    super.key,
+    required this.coverUrl,
+    this.iconSize = 38,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return const _CoverPlaceholder();
+    final imageBytes = _decodeDataImage(coverUrl);
+    if (imageBytes != null) {
+      return Image.memory(
+        imageBytes,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _CoverPlaceholder(iconSize: iconSize),
+      );
+    }
+
+    if (coverUrl.startsWith('http') || coverUrl.startsWith('blob:')) {
+      return Image.network(
+        coverUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _CoverPlaceholder(iconSize: iconSize),
+      );
+    }
+
+    return _CoverPlaceholder(iconSize: iconSize);
+  }
+
+  Uint8List? _decodeDataImage(String value) {
+    if (!value.startsWith('data:image')) return null;
+    final commaIndex = value.indexOf(',');
+    if (commaIndex == -1) return null;
+
+    try {
+      return base64Decode(value.substring(commaIndex + 1));
+    } catch (_) {
+      return null;
+    }
   }
 }
 
 class _CoverPlaceholder extends StatelessWidget {
-  const _CoverPlaceholder();
+  final double iconSize;
+
+  const _CoverPlaceholder({required this.iconSize});
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
+    return ColoredBox(
       color: AppColors.navy,
       child: Center(
-        child: Icon(Icons.menu_book, size: 38, color: Colors.white),
+        child: Icon(Icons.menu_book, size: iconSize, color: Colors.white),
       ),
     );
   }
