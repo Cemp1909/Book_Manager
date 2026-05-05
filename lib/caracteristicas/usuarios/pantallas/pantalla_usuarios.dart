@@ -14,6 +14,54 @@ class UsersScreen extends StatefulWidget {
   State<UsersScreen> createState() => _UsersScreenState();
 }
 
+class _PendingApprovalAlert extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+
+  const _PendingApprovalAlert({
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AppColors.amber.withValues(alpha: 0.12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: AppColors.amber.withValues(alpha: 0.28)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              const Icon(Icons.notification_important_outlined,
+                  color: AppColors.amber),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  count == 1
+                      ? 'Hay 1 usuario esperando aprobacion.'
+                      : 'Hay $count usuarios esperando aprobacion.',
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _UsersScreenState extends State<UsersScreen> {
   late Future<List<AppUser>> _usersFuture;
 
@@ -51,96 +99,201 @@ class _UsersScreenState extends State<UsersScreen> {
               child: Text('No hay usuarios registrados.'),
             );
           }
+          final pendingUsers = users
+              .where((user) => user.status == AccountStatus.pendingApproval)
+              .toList();
 
-          return ListView.separated(
+          return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-            itemCount: users.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final user = users[index];
-              final isCurrentUser = _isCurrentUser(user);
-
-              return Card(
-                elevation: 0,
-                color: AppColors.surface.withValues(alpha: 0.96),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: const BorderSide(color: AppColors.border),
+            children: [
+              if (pendingUsers.isNotEmpty) ...[
+                _PendingApprovalAlert(
+                  count: pendingUsers.length,
+                  onTap: () => _showPendingUsers(pendingUsers),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        isCurrentUser ? AppColors.navy : AppColors.teal,
-                    child: Text(
-                      user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    user.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 2),
-                      Text(user.email),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          Chip(
-                            visualDensity: VisualDensity.compact,
-                            label: Text(user.role.label),
-                          ),
-                          if (isCurrentUser)
-                            const Chip(
-                              visualDensity: VisualDensity.compact,
-                              avatar: Icon(Icons.verified_user, size: 16),
-                              label: Text('Sesión activa'),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  trailing: Wrap(
-                    spacing: 4,
-                    children: [
-                      IconButton(
-                        tooltip: 'Editar usuario',
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => _showUserForm(user: user),
-                      ),
-                      IconButton(
-                        tooltip: 'Eliminar usuario',
-                        icon: const Icon(Icons.delete_outline),
-                        color: Theme.of(context).colorScheme.error,
-                        onPressed:
-                            isCurrentUser ? null : () => _confirmDelete(user),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                const SizedBox(height: 12),
+              ],
+              for (final user in users) ...[
+                _buildUserCard(user),
+                const SizedBox(height: 10),
+              ],
+            ],
           );
         },
       ),
     );
   }
 
+  Widget _buildUserCard(AppUser user) {
+    final isCurrentUser = _isCurrentUser(user);
+
+    return Card(
+      elevation: 0,
+      color: AppColors.surface.withValues(alpha: 0.96),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+        leading: CircleAvatar(
+          backgroundColor: isCurrentUser ? AppColors.navy : AppColors.teal,
+          child: Text(
+            user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        title: Text(
+          user.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 2),
+            Text(user.email),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(user.role.label),
+                  labelStyle: const TextStyle(
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (isCurrentUser)
+                  const Chip(
+                    visualDensity: VisualDensity.compact,
+                    avatar: Icon(
+                      Icons.verified_user,
+                      size: 16,
+                      color: AppColors.ink,
+                    ),
+                    label: Text('Sesión activa'),
+                    labelStyle: TextStyle(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(user.status.label),
+                  labelStyle: TextStyle(
+                    color: _statusColor(user.status),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        trailing: Wrap(
+          spacing: 4,
+          children: [
+            if (user.status == AccountStatus.pendingApproval)
+              IconButton(
+                tooltip: 'Aprobar usuario',
+                icon: const Icon(Icons.check_circle_outline),
+                color: AppColors.leaf,
+                onPressed: () => _approveUser(user),
+              ),
+            if (user.status == AccountStatus.pendingApproval)
+              IconButton(
+                tooltip: 'Rechazar usuario',
+                icon: const Icon(Icons.block_outlined),
+                color: AppColors.coral,
+                onPressed: () => _rejectUser(user),
+              ),
+            IconButton(
+              tooltip: 'Editar usuario',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _showUserForm(user: user),
+            ),
+            IconButton(
+              tooltip: 'Eliminar usuario',
+              icon: const Icon(Icons.delete_outline),
+              color: Theme.of(context).colorScheme.error,
+              onPressed: isCurrentUser ? null : () => _confirmDelete(user),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPendingUsers(List<AppUser> users) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text(
+            'Solicitudes pendientes',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 12),
+          for (final user in users)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.person_add_alt_1),
+              title: Text(user.name),
+              subtitle: Text('${user.email} - ${user.role.label}'),
+              trailing: Wrap(
+                spacing: 4,
+                children: [
+                  IconButton(
+                    tooltip: 'Aprobar',
+                    icon: const Icon(Icons.check_circle_outline),
+                    color: AppColors.leaf,
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _approveUser(user);
+                    },
+                  ),
+                  IconButton(
+                    tooltip: 'Rechazar',
+                    icon: const Icon(Icons.block_outlined),
+                    color: AppColors.coral,
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _rejectUser(user);
+                    },
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   bool _isCurrentUser(AppUser user) {
     return user.email.toLowerCase() == widget.currentUser.email.toLowerCase();
+  }
+
+  Color _statusColor(AccountStatus status) {
+    return switch (status) {
+      AccountStatus.pendingEmail => AppColors.amber,
+      AccountStatus.pendingApproval => AppColors.violet,
+      AccountStatus.active => AppColors.leaf,
+      AccountStatus.rejected => AppColors.coral,
+    };
   }
 
   Future<void> _showUserForm({AppUser? user}) async {
@@ -399,5 +552,39 @@ class _UsersScreenState extends State<UsersScreen> {
       if (!mounted) return;
       setState(_loadUsers);
     }
+  }
+
+  Future<void> _approveUser(AppUser user) async {
+    final result = await AuthService.instance.approveUser(user.email);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message)),
+    );
+    if (!result.success) return;
+    await ActivityLogService.instance.record(
+      type: ActivityType.users,
+      title: 'Usuario aprobado',
+      detail: '${user.name} ya puede iniciar sesion.',
+      actor: widget.currentUser,
+    );
+    if (!mounted) return;
+    setState(_loadUsers);
+  }
+
+  Future<void> _rejectUser(AppUser user) async {
+    final result = await AuthService.instance.rejectUser(user.email);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message)),
+    );
+    if (!result.success) return;
+    await ActivityLogService.instance.record(
+      type: ActivityType.users,
+      title: 'Usuario rechazado',
+      detail: '${user.name} no fue aprobado para ingresar.',
+      actor: widget.currentUser,
+    );
+    if (!mounted) return;
+    setState(_loadUsers);
   }
 }

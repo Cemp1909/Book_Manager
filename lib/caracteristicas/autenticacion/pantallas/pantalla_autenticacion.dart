@@ -270,6 +270,11 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_isLogin) ...[
               const Divider(height: 28),
               TextButton.icon(
+                onPressed: _isLoading ? null : _showManualVerificationDialog,
+                icon: const Icon(Icons.mark_email_read_outlined),
+                label: const Text('Verificar correo'),
+              ),
+              TextButton.icon(
                 onPressed: _showResetInfo,
                 icon: const Icon(Icons.help_outline),
                 label: const Text('Olvidé mi clave'),
@@ -378,7 +383,139 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    widget.onAuthenticated();
+    if (result.authenticated) {
+      widget.onAuthenticated();
+      return;
+    }
+
+    if (result.verificationCode != null) {
+      await _showVerificationDialog(result.verificationCode!);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message)),
+    );
+  }
+
+  Future<void> _showVerificationDialog(String verificationCode) async {
+    final codeController = TextEditingController();
+    final email = _emailController.text.trim();
+
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Verificar correo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Enviamos un codigo a $email.'),
+            const SizedBox(height: 8),
+            Text(
+              'Codigo de prueba: $verificationCode',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Codigo',
+                prefixIcon: Icon(Icons.mark_email_read_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Luego'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final result = await AuthService.instance.verifyEmail(
+                email: email,
+                code: codeController.text,
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(result.message)),
+              );
+              if (result.success) Navigator.pop(context, true);
+            },
+            child: const Text('Verificar'),
+          ),
+        ],
+      ),
+    );
+
+    codeController.dispose();
+    if (verified == true && mounted) {
+      setState(() {
+        _isLogin = true;
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+      });
+    }
+  }
+
+  Future<void> _showManualVerificationDialog() async {
+    final codeController = TextEditingController();
+    final emailController = TextEditingController(text: _emailController.text);
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Verificar correo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Correo',
+                prefixIcon: Icon(Icons.alternate_email),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Codigo',
+                prefixIcon: Icon(Icons.mark_email_read_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final result = await AuthService.instance.verifyEmail(
+                email: emailController.text.trim(),
+                code: codeController.text,
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(result.message)),
+              );
+              if (result.success) Navigator.pop(context);
+            },
+            child: const Text('Verificar'),
+          ),
+        ],
+      ),
+    );
+
+    codeController.dispose();
+    emailController.dispose();
   }
 
   void _showResetInfo() {

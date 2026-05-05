@@ -6,8 +6,15 @@ import 'package:book_manager/datos/modelos/usuario_app.dart';
 class AuthResult {
   final bool success;
   final String message;
+  final String? verificationCode;
+  final bool authenticated;
 
-  const AuthResult({required this.success, required this.message});
+  const AuthResult({
+    required this.success,
+    required this.message,
+    this.verificationCode,
+    this.authenticated = false,
+  });
 }
 
 class AuthService {
@@ -45,14 +52,17 @@ class AuthService {
       email: email,
       password: password,
       role: role,
+      requireApproval: true,
     );
     if (!result.success) return result;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_emailKey, email);
-    await prefs.setBool(_loggedInKey, true);
+    if (result.authenticated) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_emailKey, email);
+      await prefs.setBool(_loggedInKey, true);
+    }
 
-    return const AuthResult(success: true, message: 'Cuenta creada.');
+    return result;
   }
 
   Future<AuthResult> createUser({
@@ -60,6 +70,7 @@ class AuthService {
     required String email,
     required String password,
     required AppRole role,
+    bool requireApproval = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final accounts = await _loadAccounts(prefs);
@@ -69,16 +80,42 @@ class AuthService {
         message: 'Ya existe una cuenta con ese correo.',
       );
     }
+    final isFirstAccount = accounts.isEmpty;
+    final status = isFirstAccount || !requireApproval
+        ? AccountStatus.active
+        : AccountStatus.pendingEmail;
+    final verificationCode = status == AccountStatus.pendingEmail
+        ? _generateVerificationCode(email)
+        : null;
 
     accounts.add(
       _StoredAccount(
-        user: AppUser(name: name, email: email, role: role),
+        user: AppUser(
+          name: name,
+          email: email,
+          role: role,
+          status: status,
+        ),
         password: password,
+        verificationCode: verificationCode,
       ),
     );
     await _saveAccounts(prefs, accounts);
 
-    return const AuthResult(success: true, message: 'Cuenta creada.');
+    if (status == AccountStatus.pendingEmail) {
+      return AuthResult(
+        success: true,
+        message:
+            'Te enviamos un codigo al correo. Verificalo y espera aprobacion del administrador.',
+        verificationCode: verificationCode,
+      );
+    }
+
+    return const AuthResult(
+      success: true,
+      message: 'Cuenta creada.',
+      authenticated: true,
+    );
   }
 
   Future<AuthResult> login({
@@ -103,11 +140,73 @@ class AuthService {
         message: 'Correo o clave incorrectos.',
       );
     }
+    if (account.user.status != AccountStatus.active) {
+      return AuthResult(
+        success: false,
+        message: switch (account.user.status) {
+          AccountStatus.pendingEmail =>
+            'Debes verificar el codigo enviado al correo.',
+          AccountStatus.pendingApproval =>
+            'Tu cuenta esta pendiente de aprobacion del administrador.',
+          AccountStatus.rejected =>
+            'Tu solicitud fue rechazada por el administrador.',
+          AccountStatus.active => 'Cuenta activa.',
+        },
+      );
+    }
 
     await prefs.setString(_emailKey, account.user.email);
     await prefs.setBool(_loggedInKey, true);
 
-    return const AuthResult(success: true, message: 'Bienvenido.');
+    return const AuthResult(
+      success: true,
+      message: 'Bienvenido.',
+      authenticated: true,
+    );
+  }
+
+  Future<AuthResult> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final accounts = await _loadAccounts(prefs);
+    final index = accounts.indexWhere(
+      (account) => account.user.email.toLowerCase() == email.toLowerCase(),
+    );
+    if (index == -1) {
+      return const AuthResult(
+        success: false,
+        message: 'No se encontro la cuenta.',
+      );
+    }
+
+    final account = accounts[index];
+    if (account.verificationCode != code.trim()) {
+      return const AuthResult(
+        success: false,
+        message: 'Codigo incorrecto.',
+      );
+    }
+
+    accounts[index] = account.copyWith(
+      user: account.user.copyWith(status: AccountStatus.pendingApproval),
+      verificationCode: '',
+    );
+    await _saveAccounts(prefs, accounts);
+
+    return const AuthResult(
+      success: true,
+      message: 'Correo verificado. Ahora espera aprobacion del administrador.',
+    );
+  }
+
+  Future<AuthResult> approveUser(String email) async {
+    return _setUserStatus(email, AccountStatus.active, 'Usuario aprobado.');
+  }
+
+  Future<AuthResult> rejectUser(String email) async {
+    return _setUserStatus(email, AccountStatus.rejected, 'Usuario rechazado.');
   }
 
   Future<List<AppUser>> users() async {
@@ -115,6 +214,15 @@ class AuthService {
     final accounts = await _loadAccounts(prefs);
     return accounts.map((account) => account.user).toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  Future<int> pendingApprovalCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accounts = await _loadAccounts(prefs);
+    return accounts
+        .where(
+            (account) => account.user.status == AccountStatus.pendingApproval)
+        .length;
   }
 
   Future<AuthResult> updateUser({
@@ -153,9 +261,15 @@ class AuthService {
 
     final currentAccount = accounts[index];
     final updatedAccount = _StoredAccount(
-      user: AppUser(name: name, email: email, role: role),
+      user: AppUser(
+        name: name,
+        email: email,
+        role: role,
+        status: currentAccount.user.status,
+      ),
       password:
           password?.isNotEmpty == true ? password! : currentAccount.password,
+      verificationCode: currentAccount.verificationCode,
     );
     final nextAccounts = [...accounts]..[index] = updatedAccount;
 
@@ -277,23 +391,68 @@ class AuthService {
   }
 
   bool _hasAdministrator(List<_StoredAccount> accounts) {
-    return accounts.any((account) => account.user.isAdministrator);
+    return accounts.any(
+      (account) =>
+          account.user.isAdministrator &&
+          account.user.status == AccountStatus.active,
+    );
+  }
+
+  Future<AuthResult> _setUserStatus(
+    String email,
+    AccountStatus status,
+    String message,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final accounts = await _loadAccounts(prefs);
+    final index = accounts.indexWhere(
+      (account) => account.user.email.toLowerCase() == email.toLowerCase(),
+    );
+    if (index == -1) {
+      return const AuthResult(
+        success: false,
+        message: 'No se encontro el usuario.',
+      );
+    }
+
+    final account = accounts[index];
+    accounts[index] = account.copyWith(
+      user: account.user.copyWith(status: status),
+    );
+    if (!_hasAdministrator(accounts)) {
+      return const AuthResult(
+        success: false,
+        message: 'Debe existir al menos un administrador activo.',
+      );
+    }
+    await _saveAccounts(prefs, accounts);
+    return AuthResult(success: true, message: message);
+  }
+
+  String _generateVerificationCode(String email) {
+    final seed = DateTime.now().millisecondsSinceEpoch +
+        email.trim().toLowerCase().codeUnits.fold(0, (sum, item) => sum + item);
+    return (seed % 900000 + 100000).toString();
   }
 }
 
 class _StoredAccount {
   final AppUser user;
   final String password;
+  final String? verificationCode;
 
   const _StoredAccount({
     required this.user,
     required this.password,
+    this.verificationCode,
   });
 
   Map<String, String> toMap() {
     return {
       ...user.toMap(),
       'password': password,
+      if (verificationCode != null && verificationCode!.isNotEmpty)
+        'verificationCode': verificationCode!,
     };
   }
 
@@ -303,6 +462,19 @@ class _StoredAccount {
         map.map((key, value) => MapEntry(key, value?.toString() ?? '')),
       ),
       password: map['password']?.toString() ?? '',
+      verificationCode: map['verificationCode']?.toString(),
+    );
+  }
+
+  _StoredAccount copyWith({
+    AppUser? user,
+    String? password,
+    String? verificationCode,
+  }) {
+    return _StoredAccount(
+      user: user ?? this.user,
+      password: password ?? this.password,
+      verificationCode: verificationCode ?? this.verificationCode,
     );
   }
 }

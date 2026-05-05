@@ -41,11 +41,7 @@ class DashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHero(context, dataService),
-              const SizedBox(height: 16),
               _buildSummaryGrid(context, dataService),
-              const SizedBox(height: 18),
-              _buildAlerts(context, dataService),
               const SizedBox(height: 24),
               const Text(
                 'Acciones rapidas',
@@ -89,122 +85,6 @@ class DashboardScreen extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildHero(BuildContext context, TemporaryDataService dataService) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.navy,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: AppShadows.lifted(AppColors.navy),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 560;
-          final textBlock = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: const Text(
-                  'Operacion activa',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Tu editorial en movimiento',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  height: 1.05,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${dataService.pendingOrders} pedidos activos y '
-                '${dataService.dispatchedOrders} despachos completados.',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          );
-          final incomeCard = Container(
-            width: isCompact ? double.infinity : 170,
-            margin: EdgeInsets.only(top: isCompact ? 16 : 0),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.auto_graph,
-                  color: AppColors.coral,
-                  size: 28,
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  CurrencyFormatService.compactMoney(
-                    dataService.income,
-                    dataService.settings.currencySymbol,
-                  ),
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const Text(
-                  'Ingresos registrados',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          );
-
-          return isCompact
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    textBlock,
-                    incomeCard,
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(child: textBlock),
-                    const SizedBox(width: 20),
-                    incomeCard,
-                  ],
-                );
-        },
-      ),
     );
   }
 
@@ -263,43 +143,6 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAlerts(BuildContext context, TemporaryDataService dataService) {
-    return Card(
-      child: InkWell(
-        onTap: () => _showPendingOrders(context, dataService),
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.amber.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.notifications_active,
-                  color: AppColors.amber,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  '${dataService.pendingOrders} pedidos pendientes por mover. '
-                  'Toca para revisar estado e informacion.',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.muted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
       if (onNewOrder != null)
@@ -320,16 +163,6 @@ class DashboardScreen extends StatelessWidget {
           icon: Icons.local_shipping_outlined,
           onTap: onOpenDispatches,
         ),
-      QuickAction(
-        title: 'Reporte rapido',
-        icon: Icons.picture_as_pdf,
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Reporte temporal listo para conectar')),
-          );
-        },
-      ),
     ];
 
     return LayoutBuilder(

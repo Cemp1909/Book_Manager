@@ -4,6 +4,31 @@ enum AppRole {
   warehouse,
 }
 
+enum AccountStatus {
+  pendingEmail,
+  pendingApproval,
+  active,
+  rejected,
+}
+
+AccountStatus accountStatusFromStorage(String? value) {
+  return AccountStatus.values.firstWhere(
+    (status) => status.name == value,
+    orElse: () => AccountStatus.active,
+  );
+}
+
+extension AccountStatusX on AccountStatus {
+  String get label {
+    return switch (this) {
+      AccountStatus.pendingEmail => 'Verificar correo',
+      AccountStatus.pendingApproval => 'Pendiente aprobacion',
+      AccountStatus.active => 'Activo',
+      AccountStatus.rejected => 'Rechazado',
+    };
+  }
+}
+
 AppRole appRoleFromStorage(String? value) {
   return AppRole.values.firstWhere(
     (role) => role.label.toLowerCase() == value?.toLowerCase(),
@@ -25,11 +50,13 @@ class AppUser {
   final String name;
   final String email;
   final AppRole role;
+  final AccountStatus status;
 
   const AppUser({
     required this.name,
     required this.email,
     this.role = AppRole.administrator,
+    this.status = AccountStatus.active,
   });
 
   Map<String, String> toMap() {
@@ -37,6 +64,7 @@ class AppUser {
       'name': name,
       'email': email,
       'role': role.label,
+      'status': status.name,
     };
   }
 
@@ -45,6 +73,21 @@ class AppUser {
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       role: appRoleFromStorage(map['role']),
+      status: accountStatusFromStorage(map['status']),
+    );
+  }
+
+  AppUser copyWith({
+    String? name,
+    String? email,
+    AppRole? role,
+    AccountStatus? status,
+  }) {
+    return AppUser(
+      name: name ?? this.name,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      status: status ?? this.status,
     );
   }
 

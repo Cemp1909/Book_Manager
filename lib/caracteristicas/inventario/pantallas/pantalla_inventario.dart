@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -52,7 +51,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
   String _searchQuery = '';
   String _filter = 'all';
   bool _isLoading = true;
-  bool _showInventorySummary = true;
   int _handledBookOpenRequest = 0;
   List<Book> _books = [];
 
@@ -114,112 +112,57 @@ class _InventoryScreenState extends State<InventoryScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: AppGradients.command,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                boxShadow: AppShadows.lifted(AppColors.navy),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: AppColors.teal.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.manage_search,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Biblioteca profesional',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            Text(
-                              'Busca por titulo, autor, categoria o ISBN.',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar titulo, autor o ISBN',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
                   ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Buscar por titulo, autor o ISBN',
-                            prefixIcon: const Icon(Icons.search),
-                            fillColor: Colors.white,
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _searchQuery = '';
-                                      });
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _searchQuery = value;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      IconButton.filledTonal(
-                        onPressed: _books.isEmpty || _isLoading
-                            ? null
-                            : _showCatalogOptions,
-                        icon: const Icon(Icons.picture_as_pdf_outlined),
-                        tooltip: 'Compartir catalogo PDF',
-                      ),
-                      const SizedBox(width: 8),
-                      if (widget.canManageInventory ||
-                          widget.canEditStockOnly) ...[
-                        IconButton.filledTonal(
-                          onPressed: _showInventoryMovements,
-                          icon: const Icon(Icons.warehouse_outlined),
-                          tooltip: 'Bodegas y movimientos',
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      if (widget.canScanInventory)
-                        IconButton.filled(
-                          onPressed: _scanAndSearch,
-                          icon: const Icon(Icons.qr_code_scanner),
-                          tooltip: 'Escanear ISBN',
-                        ),
-                    ],
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  onPressed:
+                      _books.isEmpty || _isLoading ? null : _showCatalogOptions,
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  tooltip: 'Compartir catalogo PDF',
+                ),
+                if (widget.canManageInventory || widget.canEditStockOnly) ...[
+                  const SizedBox(width: 6),
+                  IconButton.filledTonal(
+                    onPressed: _showInventoryMovements,
+                    icon: const Icon(Icons.warehouse_outlined),
+                    tooltip: 'Bodegas y movimientos',
                   ),
                 ],
-              ),
+                if (widget.canScanInventory) ...[
+                  const SizedBox(width: 6),
+                  IconButton.filled(
+                    onPressed: _scanAndSearch,
+                    icon: const Icon(Icons.qr_code_scanner),
+                    tooltip: 'Escanear ISBN',
+                  ),
+                ],
+              ],
             ),
           ),
           Padding(
@@ -245,7 +188,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           if (!_isLoading && _hasInventoryAlerts) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -253,90 +196,68 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
             const SizedBox(height: 10),
           ],
-          if (!_isLoading && _books.isNotEmpty) ...[
-            AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              child: _showInventorySummary
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildInventorySummary(),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              child: _showInventorySummary
-                  ? const SizedBox(height: 8)
-                  : const SizedBox.shrink(),
-            ),
-          ],
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredBooks.isEmpty
                     ? const _EmptyLibraryState()
-                    : NotificationListener<UserScrollNotification>(
-                        onNotification: _handleBookListScroll,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _filteredBooks.length,
-                          itemBuilder: (context, index) {
-                            final book = _filteredBooks[index];
-                            return Slidable(
-                              key: ValueKey(book.id ?? book.isbn),
-                              startActionPane: widget.canManageInventory ||
-                                      widget.canEditStockOnly
-                                  ? ActionPane(
-                                      motion: const StretchMotion(),
-                                      children: [
-                                        if (widget.canManageInventory)
-                                          SlidableAction(
-                                            onPressed: (_) =>
-                                                _openEditBookScreen(book),
-                                            backgroundColor: AppColors.teal,
-                                            foregroundColor: Colors.white,
-                                            icon: Icons.edit_outlined,
-                                            label: 'Editar',
-                                          ),
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _filteredBooks.length,
+                        itemBuilder: (context, index) {
+                          final book = _filteredBooks[index];
+                          return Slidable(
+                            key: ValueKey(book.id ?? book.isbn),
+                            startActionPane: widget.canManageInventory ||
+                                    widget.canEditStockOnly
+                                ? ActionPane(
+                                    motion: const StretchMotion(),
+                                    children: [
+                                      if (widget.canManageInventory)
                                         SlidableAction(
                                           onPressed: (_) =>
-                                              _openStockEditor(book),
-                                          backgroundColor: AppColors.leaf,
+                                              _openEditBookScreen(book),
+                                          backgroundColor: AppColors.teal,
                                           foregroundColor: Colors.white,
-                                          icon: Icons.inventory_2_outlined,
-                                          label: 'Stock',
+                                          icon: Icons.edit_outlined,
+                                          label: 'Editar',
                                         ),
-                                      ],
-                                    )
-                                  : null,
-                              endActionPane: widget.canManageInventory
-                                  ? ActionPane(
-                                      motion: const DrawerMotion(),
-                                      children: [
-                                        SlidableAction(
-                                          onPressed: (_) =>
-                                              _confirmDeleteBook(book),
-                                          backgroundColor: AppColors.coral,
-                                          foregroundColor: Colors.white,
-                                          icon: Icons.delete_outline,
-                                          label: 'Eliminar',
-                                        ),
-                                      ],
-                                    )
-                                  : null,
-                              child: BookCard(
-                                book: book,
-                                showPrice: widget.showPrices,
-                                animationIndex: index,
-                                onTap: () {
-                                  _showBookDetail(context, book);
-                                },
-                              ),
-                            );
-                          },
-                        ),
+                                      SlidableAction(
+                                        onPressed: (_) =>
+                                            _openStockEditor(book),
+                                        backgroundColor: AppColors.leaf,
+                                        foregroundColor: Colors.white,
+                                        icon: Icons.inventory_2_outlined,
+                                        label: 'Stock',
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            endActionPane: widget.canManageInventory
+                                ? ActionPane(
+                                    motion: const DrawerMotion(),
+                                    children: [
+                                      SlidableAction(
+                                        onPressed: (_) =>
+                                            _confirmDeleteBook(book),
+                                        backgroundColor: AppColors.coral,
+                                        foregroundColor: Colors.white,
+                                        icon: Icons.delete_outline,
+                                        label: 'Eliminar',
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            child: BookCard(
+                              book: book,
+                              showPrice: widget.showPrices,
+                              animationIndex: index,
+                              onTap: () {
+                                _showBookDetail(context, book);
+                              },
+                            ),
+                          );
+                        },
                       ),
           ),
         ],
@@ -415,22 +336,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  bool _handleBookListScroll(UserScrollNotification notification) {
-    if (notification.direction == ScrollDirection.reverse &&
-        _showInventorySummary) {
-      setState(() {
-        _showInventorySummary = false;
-      });
-    } else if (notification.direction == ScrollDirection.forward &&
-        !_showInventorySummary) {
-      setState(() {
-        _showInventorySummary = true;
-      });
-    }
-
-    return false;
-  }
-
   void _openInitialBookIfNeeded() {
     final bookToOpen = widget.initialBookToOpen;
     if (bookToOpen == null ||
@@ -457,11 +362,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return FilterChip(
       avatar: Icon(icon, size: 17, color: AppColors.ink),
       label: Text(label),
+      showCheckmark: false,
       labelStyle: const TextStyle(
         color: AppColors.ink,
         fontWeight: FontWeight.w800,
       ),
-      checkmarkColor: AppColors.ink,
       backgroundColor: Colors.white,
       selectedColor: Colors.white,
       side: BorderSide(
@@ -473,106 +378,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
           _filter = value;
         });
       },
-    );
-  }
-
-  Widget _buildInventorySummary() {
-    final lowStock = _books
-        .where(
-          (book) =>
-              book.stock <= _dataService.settings.lowStockLimit &&
-              book.stock > 0,
-        )
-        .length;
-    final outOfStock = _books.where((book) => book.stock == 0).length;
-    final inventoryValue = _books.fold<int>(
-      0,
-      (total, book) => total + (book.price * book.stock),
-    );
-
-    final summaryItems = <Widget>[
-      _buildSummaryPill(
-        label: 'Libros',
-        value: _books.length.toString(),
-        color: AppColors.teal,
-      ),
-      _buildSummaryPill(
-        label: 'Stock bajo',
-        value: lowStock.toString(),
-        color: AppColors.amber,
-      ),
-      _buildSummaryPill(
-        label: 'Agotados',
-        value: outOfStock.toString(),
-        color: AppColors.coral,
-      ),
-      if (widget.showPrices)
-        _buildSummaryPill(
-          label: 'Valor',
-          value: CurrencyFormatService.compactMoney(
-            inventoryValue,
-            _dataService.settings.currencySymbol,
-          ),
-          color: AppColors.leaf,
-        ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final itemWidth = constraints.maxWidth < 520
-            ? (constraints.maxWidth - 8) / 2
-            : (constraints.maxWidth - ((summaryItems.length - 1) * 8)) /
-                summaryItems.length;
-
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: summaryItems
-              .map((item) => SizedBox(width: itemWidth, child: item))
-              .toList(),
-        );
-      },
-    );
-  }
-
-  Widget _buildSummaryPill({
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.muted,
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

@@ -45,7 +45,6 @@ class _LibraryHomeScreenState extends State<LibraryHomeScreen> {
             .where((book) => book.stock <= lowStockLimit && book.stock > 0)
             .length;
         final outOfStock = books.where((book) => book.stock == 0).length;
-        final available = books.length - lowStock - outOfStock;
         final featured = books.take(4).toList();
 
         return RefreshIndicator(
@@ -58,21 +57,13 @@ class _LibraryHomeScreenState extends State<LibraryHomeScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _HeroPanel(
-                total: books.length,
-                available: available,
-                lowStock: lowStock,
-                outOfStock: outOfStock,
-              ),
-              if (lowStock > 0 || outOfStock > 0) ...[
-                const SizedBox(height: 12),
+              if (lowStock > 0 || outOfStock > 0)
                 _StockAlertCard(
                   lowStock: lowStock,
                   outOfStock: outOfStock,
                   onTap: widget.onOpenLibrary,
                 ),
-              ],
-              const SizedBox(height: 16),
+              if (lowStock > 0 || outOfStock > 0) const SizedBox(height: 12),
               _buildActions().animate().fadeIn(delay: 120.ms).slideY(
                     begin: 0.08,
                   ),
@@ -203,140 +194,6 @@ class _StockAlertCard extends StatelessWidget {
         ),
       ),
     ).animate().fadeIn(delay: 80.ms).slideY(begin: 0.05);
-  }
-}
-
-class _HeroPanel extends StatelessWidget {
-  final int total;
-  final int available;
-  final int lowStock;
-  final int outOfStock;
-
-  const _HeroPanel({
-    required this.total,
-    required this.available,
-    required this.lowStock,
-    required this.outOfStock,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: AppGradients.command,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: AppShadows.lifted(AppColors.navy),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Centro de control editorial',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              height: 1.05,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '$total libros en inventario: $available disponibles, $lowStock con stock bajo y $outOfStock agotados.',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 18),
-          _AvailabilityBar(
-            total: total,
-            available: available,
-            lowStock: lowStock,
-            outOfStock: outOfStock,
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _HeroPill(label: 'Disponibles', value: available.toString()),
-              _HeroPill(label: 'Stock bajo', value: lowStock.toString()),
-              _HeroPill(label: 'Agotados', value: outOfStock.toString()),
-            ],
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 360.ms).slideY(begin: 0.08);
-  }
-}
-
-class _HeroPill extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _HeroPill({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Text(
-        '$value $label',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _AvailabilityBar extends StatelessWidget {
-  final int total;
-  final int available;
-  final int lowStock;
-  final int outOfStock;
-
-  const _AvailabilityBar({
-    required this.total,
-    required this.available,
-    required this.lowStock,
-    required this.outOfStock,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final safeTotal = total == 0 ? 1 : total;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        height: 12,
-        child: Row(
-          children: [
-            Expanded(
-              flex: (available / safeTotal * 100).round().clamp(1, 100),
-              child: const ColoredBox(color: AppColors.leaf),
-            ),
-            Expanded(
-              flex: (lowStock / safeTotal * 100).round().clamp(1, 100),
-              child: const ColoredBox(color: AppColors.amber),
-            ),
-            Expanded(
-              flex: (outOfStock / safeTotal * 100).round().clamp(1, 100),
-              child: const ColoredBox(color: AppColors.coral),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
