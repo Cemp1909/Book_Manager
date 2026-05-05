@@ -25,6 +25,7 @@ const routeMap = [
   ['remisiones', tableSchemas.remisiones],
   ['devoluciones', tableSchemas.devoluciones],
   ['devolucion-detalle', tableSchemas.devolucionDetalle],
+  ['historial-actividad', tableSchemas.historialActividad],
 ];
 
 export function buildResourceRoutes() {

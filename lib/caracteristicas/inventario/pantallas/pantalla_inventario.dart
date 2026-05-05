@@ -845,6 +845,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
         title: 'Libro agregado',
         detail: '${book.title} entro con ${book.stock} unidades.',
         actor: widget.currentUser,
+        entityType: 'libro',
+        entityId: book.isbn,
+        entityName: book.title,
       );
 
       if (!mounted) return;

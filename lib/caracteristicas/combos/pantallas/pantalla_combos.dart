@@ -170,24 +170,21 @@ class _CombosScreenState extends State<CombosScreen> {
         ),
         if (widget.canEditCombos) ...[
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _openCitySheet,
-                  icon: const Icon(Icons.add_location_alt_outlined),
-                  label: const Text('Ciudad'),
-                ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.canvas,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const Text(
+              'Las ciudades y colegios se administran desde la seccion Colegios.',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _openSchoolSheet,
-                  icon: const Icon(Icons.add_business_outlined),
-                  label: const Text('Colegio'),
-                ),
-              ),
-            ],
+            ),
           ),
           if (_selectedSchoolId != null) ...[
             const SizedBox(height: 10),
@@ -296,144 +293,6 @@ class _CombosScreenState extends State<CombosScreen> {
     }
   }
 
-  Future<void> _openCitySheet() async {
-    final controller = TextEditingController();
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nueva ciudad'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Nombre'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (controller.text.trim().isEmpty) return;
-              _dataService.addCity(controller.text);
-              Navigator.pop(context, true);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (saved == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ciudad agregada')),
-      );
-    }
-  }
-
-  Future<void> _openSchoolSheet() async {
-    final nameController = TextEditingController();
-    final addressController = TextEditingController();
-    final phoneController = TextEditingController();
-    var cityId = _selectedCityId ?? _dataService.cities.first.id;
-
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-      ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            MediaQuery.viewInsetsOf(context).bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Nuevo colegio',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: cityId,
-                decoration: const InputDecoration(
-                  labelText: 'Ciudad',
-                  prefixIcon: Icon(Icons.location_city_outlined),
-                ),
-                items: _dataService.cities
-                    .map(
-                      (city) => DropdownMenuItem(
-                        value: city.id,
-                        child: Text(city.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setSheetState(() => cityId = value);
-                },
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del colegio',
-                  prefixIcon: Icon(Icons.school_outlined),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: addressController,
-                decoration: const InputDecoration(
-                  labelText: 'Direccion',
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Telefono',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    if (nameController.text.trim().isEmpty) return;
-                    _dataService.addSchool(
-                      cityId: cityId,
-                      name: nameController.text,
-                      address: addressController.text,
-                      phone: phoneController.text,
-                    );
-                    Navigator.pop(context, true);
-                  },
-                  child: const Text('Guardar colegio'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    nameController.dispose();
-    addressController.dispose();
-    phoneController.dispose();
-    if (saved == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Colegio agregado')),
-      );
-    }
-  }
-
   Future<void> _loadBooks() async {
     try {
       final books = await _databaseService.getBooks();
@@ -514,7 +373,11 @@ class _CombosScreenState extends State<CombosScreen> {
         .where((city) => _dataService.schoolsForCity(city.id).isNotEmpty)
         .toList();
     if (citiesWithSchools.isEmpty) {
-      _openSchoolSheet();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Crea primero una ciudad y un colegio en Colegios.'),
+        ),
+      );
       return;
     }
 

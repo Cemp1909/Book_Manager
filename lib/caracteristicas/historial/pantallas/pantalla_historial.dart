@@ -13,13 +13,47 @@ class ActivityHistoryScreen extends StatefulWidget {
 class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
   final _historyService = ActivityLogService.instance;
   ActivityType? _filter;
+  String? _actorFilter;
+  String? _entityFilter;
   bool _isLoading = true;
 
   List<AppActivity> get _filteredActivities {
     final activities = _historyService.activities;
     final filter = _filter;
-    if (filter == null) return activities;
-    return activities.where((activity) => activity.type == filter).toList();
+    final actorFilter = _actorFilter;
+    final entityFilter = _entityFilter;
+    return activities.where((activity) {
+      final typeMatches = filter == null || activity.type == filter;
+      final actorMatches =
+          actorFilter == null || activity.actorName == actorFilter;
+      final entityKey = _entityKey(activity);
+      final entityMatches = entityFilter == null || entityKey == entityFilter;
+      return typeMatches && actorMatches && entityMatches;
+    }).toList();
+  }
+
+  List<String> get _actorNames {
+    final names = _historyService.activities
+        .map((activity) => activity.actorName.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return names;
+  }
+
+  Map<String, String> get _entityNames {
+    final entities = <String, String>{};
+    for (final activity in _historyService.activities) {
+      final key = _entityKey(activity);
+      if (key == null || activity.entityName.trim().isEmpty) continue;
+      entities[key] = activity.entityName;
+    }
+    return Map.fromEntries(
+      entities.entries.toList()
+        ..sort(
+            (a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase())),
+    );
   }
 
   @override
@@ -53,6 +87,16 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _buildFilters(),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildActorFilters(),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildEntityFilters(),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -153,6 +197,75 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
       ),
     );
   }
+
+  Widget _buildActorFilters() {
+    final actors = _actorNames;
+
+    if (actors.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _FilterPill(
+            label: 'Todos los usuarios',
+            icon: Icons.people_outline,
+            selected: _actorFilter == null,
+            onTap: () => setState(() => _actorFilter = null),
+          ),
+          const SizedBox(width: 8),
+          for (final actor in actors) ...[
+            _FilterPill(
+              label: actor,
+              icon: Icons.person_outline,
+              selected: _actorFilter == actor,
+              onTap: () => setState(() => _actorFilter = actor),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEntityFilters() {
+    final entities = _entityNames;
+
+    if (entities.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _FilterPill(
+            label: 'Todas las entidades',
+            icon: Icons.account_tree_outlined,
+            selected: _entityFilter == null,
+            onTap: () => setState(() => _entityFilter = null),
+          ),
+          const SizedBox(width: 8),
+          for (final entity in entities.entries) ...[
+            _FilterPill(
+              label: entity.value,
+              icon: Icons.filter_alt_outlined,
+              selected: _entityFilter == entity.key,
+              onTap: () => setState(() => _entityFilter = entity.key),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String? _entityKey(AppActivity activity) {
+  if (activity.entityType.isEmpty || activity.entityId.isEmpty) return null;
+  return '${activity.entityType}:${activity.entityId}';
 }
 
 class _ActivityTile extends StatelessWidget {
@@ -201,6 +314,17 @@ class _ActivityTile extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              if (activity.entityName.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  activity.entityName,
+                  style: const TextStyle(
+                    color: AppColors.tealDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -232,6 +356,7 @@ class _FilterPill extends StatelessWidget {
         fontWeight: FontWeight.w800,
       ),
       selected: selected,
+      showCheckmark: false,
       onSelected: (_) => onTap(),
       selectedColor: Colors.white,
       backgroundColor: Colors.white,

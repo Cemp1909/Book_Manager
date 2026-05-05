@@ -3,6 +3,7 @@ import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/pedido_app.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
 import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
+import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 import 'package:book_manager/compartido/servicios/servicio_mapas.dart';
 
 Future<void> showOrderDetailSheet({
@@ -10,6 +11,11 @@ Future<void> showOrderDetailSheet({
   required AppOrder order,
   required String currency,
 }) {
+  final history = ActivityLogService.instance.activitiesForEntity(
+    entityType: 'pedido',
+    entityId: order.id,
+  );
+
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -91,6 +97,38 @@ Future<void> showOrderDetailSheet({
               ),
             ],
           ),
+          const Divider(height: 28),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Historial del pedido',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+              ),
+              Chip(
+                visualDensity: VisualDensity.compact,
+                label: Text(history.length.toString()),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (history.isEmpty)
+            const Text(
+              'Aun no hay actividad registrada para este pedido.',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            for (final activity in history.take(5))
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.history_outlined),
+                title: Text(activity.title),
+                subtitle: Text(activity.detail),
+              ),
         ],
       ),
     ),

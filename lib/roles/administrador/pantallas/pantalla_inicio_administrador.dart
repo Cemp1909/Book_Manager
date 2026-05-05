@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/datos/modelos/usuario_app.dart';
+import 'package:book_manager/caracteristicas/colegios/pantallas/pantalla_colegios.dart';
 import 'package:book_manager/caracteristicas/combos/pantallas/pantalla_combos.dart';
 import 'package:book_manager/caracteristicas/estadisticas/pantallas/pantalla_estadisticas.dart';
 import 'package:book_manager/caracteristicas/historial/pantallas/pantalla_historial.dart';
@@ -10,6 +11,7 @@ import 'package:book_manager/caracteristicas/inventario/pantallas/pantalla_inven
 import 'package:book_manager/caracteristicas/pedidos/pantallas/pantalla_despachos.dart';
 import 'package:book_manager/caracteristicas/pedidos/pantallas/pantalla_pedidos.dart';
 import 'package:book_manager/caracteristicas/perfil/pantallas/pantalla_perfil.dart';
+import 'package:book_manager/caracteristicas/reportes/pantallas/pantalla_reportes.dart';
 import 'package:book_manager/caracteristicas/usuarios/pantallas/pantalla_usuarios.dart';
 
 class PantallaInicioAdministrador extends StatelessWidget {
@@ -83,6 +85,24 @@ class PantallaInicioAdministrador extends StatelessWidget {
               label: 'Estadísticas',
             ),
             screen: StatisticsScreen(),
+          ),
+          const ItemNavegacionRol(
+            title: 'Colegios',
+            destination: NavigationDestination(
+              icon: Icon(Icons.school_outlined),
+              selectedIcon: Icon(Icons.school),
+              label: 'Colegios',
+            ),
+            screen: SchoolsScreen(canManageSchools: true),
+          ),
+          const ItemNavegacionRol(
+            title: 'Reportes',
+            destination: NavigationDestination(
+              icon: Icon(Icons.description_outlined),
+              selectedIcon: Icon(Icons.description),
+              label: 'Reportes',
+            ),
+            screen: ReportsScreen(),
           ),
           const ItemNavegacionRol(
             title: 'Combos',

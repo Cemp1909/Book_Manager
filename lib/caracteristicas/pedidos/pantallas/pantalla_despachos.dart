@@ -67,6 +67,10 @@ class DispatchesScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            if (dataService.returns.isNotEmpty) ...[
+              _ReturnsPanel(returns: dataService.returns),
+              const SizedBox(height: 16),
+            ],
             if (dispatches.isEmpty)
               const _EmptyDispatches()
             else
@@ -81,15 +85,7 @@ class DispatchesScreen extends StatelessWidget {
                   ),
                   onDispatch: canDispatchOrders
                       ? () {
-                          dataService.updateOrderStatus(
-                            order.id,
-                            OrderStatus.dispatched,
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Pedido #${order.id} despachado'),
-                            ),
-                          );
+                          _dispatchOrder(context, order);
                         }
                       : null,
                   onShareGuide: () => _shareDispatchGuide(context, order),
@@ -114,6 +110,16 @@ class DispatchesScreen extends StatelessWidget {
         order: order,
         settings: TemporaryDataService.instance.settings,
       );
+      TemporaryDataService.instance.markRemissionGenerated(order.id);
+      await ActivityLogService.instance.record(
+        type: ActivityType.orders,
+        title: 'Remision generada',
+        detail: 'Se genero la remision del pedido #${order.id}.',
+        actor: currentUser,
+        entityType: 'pedido',
+        entityId: order.id,
+        entityName: 'Pedido #${order.id}',
+      );
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -122,11 +128,123 @@ class DispatchesScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _dispatchOrder(BuildContext context, AppOrder order) async {
+    final validationErrors = await _validateBeforeDispatch(order);
+    if (validationErrors.isNotEmpty) {
+      if (!context.mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('No se puede despachar'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Revisa estas condiciones antes de continuar:'),
+              const SizedBox(height: 10),
+              for (final error in validationErrors)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          size: 18, color: AppColors.coral),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(error)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    TemporaryDataService.instance.updateOrderStatus(
+      order.id,
+      OrderStatus.dispatched,
+    );
+    await ActivityLogService.instance.record(
+      type: ActivityType.orders,
+      title: 'Pedido despachado',
+      detail: 'Pedido #${order.id} fue marcado como despachado.',
+      actor: currentUser,
+      entityType: 'pedido',
+      entityId: order.id,
+      entityName: 'Pedido #${order.id}',
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Pedido #${order.id} despachado')),
+    );
+  }
+
+  Future<List<String>> _validateBeforeDispatch(AppOrder order) async {
+    final errors = <String>[];
+    final dataService = TemporaryDataService.instance;
+
+    if (order.items.isEmpty) {
+      errors.add('El pedido no tiene productos.');
+    }
+
+    final hasSchool = dataService.schools.any(
+      (school) => school.name.toLowerCase() == order.customer.toLowerCase(),
+    );
+    if (!hasSchool || order.deliveryAddress.trim().isEmpty) {
+      errors.add('El pedido debe tener colegio y direccion de entrega.');
+    }
+
+    if (!dataService.hasGeneratedRemission(order.id)) {
+      errors.add('Primero genera la remision del pedido.');
+    }
+
+    final stockErrors = await _stockErrorsForOrder(order);
+    errors.addAll(stockErrors);
+    return errors;
+  }
+
+  Future<List<String>> _stockErrorsForOrder(AppOrder order) async {
+    final books = await DatabaseService.instance.getBooks();
+    final requiredByIsbn = <String, int>{};
+    final titlesByIsbn = <String, String>{};
+
+    for (final item in order.items) {
+      final itemBooks = item.isCombo
+          ? _booksForCombo(item.title, books)
+          : _booksForItem(item, books);
+      if (itemBooks.isEmpty) {
+        return ['No se encontro inventario para ${item.title}.'];
+      }
+      for (final book in itemBooks) {
+        requiredByIsbn[book.isbn] =
+            (requiredByIsbn[book.isbn] ?? 0) + item.quantity;
+        titlesByIsbn[book.isbn] = book.title;
+      }
+    }
+
+    final booksByIsbn = {for (final book in books) book.isbn: book};
+    return requiredByIsbn.entries
+        .where((entry) => (booksByIsbn[entry.key]?.stock ?? 0) < entry.value)
+        .map((entry) {
+      final available = booksByIsbn[entry.key]?.stock ?? 0;
+      return '${titlesByIsbn[entry.key] ?? entry.key}: requiere ${entry.value}, disponible $available.';
+    }).toList();
+  }
+
   Future<void> _openReturnSheet(BuildContext context, AppOrder order) async {
     final reasonController = TextEditingController();
     var selectedItem = order.items.first;
     var quantity = 1;
     var restock = false;
+    var returnStatus = ReturnStatus.registered;
 
     final record = await showModalBottomSheet<ReturnRecord>(
       context: context,
@@ -227,13 +345,68 @@ class DispatchesScreen extends StatelessWidget {
                   subtitle: const Text(
                     'Deja constancia para ajustar stock si corresponde.',
                   ),
-                  onChanged: (value) => setSheetState(() => restock = value),
+                  onChanged: (value) => setSheetState(() {
+                    restock = value;
+                    returnStatus = value
+                        ? ReturnStatus.restocked
+                        : ReturnStatus.registered;
+                  }),
                 ),
+                if (!restock) ...[
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<ReturnStatus>(
+                    initialValue: returnStatus,
+                    decoration: const InputDecoration(
+                      labelText: 'Estado de devolucion',
+                      prefixIcon: Icon(Icons.traffic_outlined),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: ReturnStatus.registered,
+                        child: Text('Registrada'),
+                      ),
+                      DropdownMenuItem(
+                        value: ReturnStatus.notRestockable,
+                        child: Text('No reintegrable'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setSheetState(() => returnStatus = value);
+                    },
+                  ),
+                ],
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     final reason = reasonController.text.trim();
                     if (reason.isEmpty) return;
+
+                    if (restock) {
+                      final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('Confirmar reintegro'),
+                              content: const Text(
+                                'Esto aumentará el stock y creará un movimiento de entrada.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(dialogContext, false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                FilledButton(
+                                  onPressed: () =>
+                                      Navigator.pop(dialogContext, true),
+                                  child: const Text('Reintegrar'),
+                                ),
+                              ],
+                            ),
+                          ) ??
+                          false;
+                      if (!context.mounted || !confirmed) return;
+                    }
 
                     Navigator.pop(
                       context,
@@ -246,6 +419,7 @@ class DispatchesScreen extends StatelessWidget {
                         reason: reason,
                         restock: restock,
                         date: DateTime.now(),
+                        status: restock ? ReturnStatus.restocked : returnStatus,
                       ),
                     );
                   },
@@ -263,28 +437,43 @@ class DispatchesScreen extends StatelessWidget {
     if (record == null) return;
     if (!context.mounted) return;
 
-    TemporaryDataService.instance.addReturn(record);
+    var savedRecord = record;
     if (record.restock) {
-      await _restockReturnedItem(
+      final restocked = await _restockReturnedItem(
         context: context,
         item: selectedItem,
         quantity: record.quantity,
         reason: record.reason,
       );
+      savedRecord = record.copyWith(
+        restock: restocked,
+        status: restocked ? ReturnStatus.restocked : ReturnStatus.registered,
+      );
     }
+    TemporaryDataService.instance.addReturn(savedRecord);
+    await ActivityLogService.instance.record(
+      type: ActivityType.orders,
+      title: 'Devolucion registrada',
+      detail:
+          '${savedRecord.quantity} x ${savedRecord.itemTitle}: ${savedRecord.status.label}.',
+      actor: currentUser,
+      entityType: 'pedido',
+      entityId: savedRecord.orderId,
+      entityName: 'Pedido #${savedRecord.orderId}',
+    );
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          record.restock
+          savedRecord.status == ReturnStatus.restocked
               ? 'Devolucion registrada y stock reintegrado'
-              : 'Devolucion registrada: ${record.quantity} x ${record.itemTitle}',
+              : 'Devolucion registrada: ${savedRecord.quantity} x ${savedRecord.itemTitle}',
         ),
       ),
     );
   }
 
-  Future<void> _restockReturnedItem({
+  Future<bool> _restockReturnedItem({
     required BuildContext context,
     required OrderItem item,
     required int quantity,
@@ -297,14 +486,14 @@ class DispatchesScreen extends StatelessWidget {
           : _booksForItem(item, books);
 
       if (returnedBooks.isEmpty) {
-        if (!context.mounted) return;
+        if (!context.mounted) return false;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
                 'Devolucion guardada, pero no se encontro stock para ${item.title}'),
           ),
         );
-        return;
+        return false;
       }
 
       final movementDetails = <InventoryMovementDetail>[];
@@ -321,7 +510,7 @@ class DispatchesScreen extends StatelessWidget {
         );
       }
 
-      if (movementDetails.isEmpty) return;
+      if (movementDetails.isEmpty) return false;
 
       final dataService = TemporaryDataService.instance;
       final warehouse = dataService.warehouses.first;
@@ -345,13 +534,15 @@ class DispatchesScreen extends StatelessWidget {
             '${item.title}: ${movementDetails.length} referencia(s), $quantity unidad(es).',
         actor: currentUser,
       );
+      return true;
     } catch (error) {
-      if (!context.mounted) return;
+      if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
                 'Devolucion guardada, pero no se reintegro stock: $error')),
       );
+      return false;
     }
   }
 
@@ -374,6 +565,93 @@ class DispatchesScreen extends StatelessWidget {
     }
     return const [];
   }
+}
+
+class _ReturnsPanel extends StatelessWidget {
+  final List<ReturnRecord> returns;
+
+  const _ReturnsPanel({required this.returns});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: AppColors.surface.withValues(alpha: 0.96),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Devoluciones recientes',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(returns.length.toString()),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final record in returns.take(4)) _ReturnTile(record: record),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReturnTile extends StatelessWidget {
+  final ReturnRecord record;
+
+  const _ReturnTile({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _returnStatusColor(record.status);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      title: Text(
+        record.itemTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w900),
+      ),
+      subtitle: Text(
+        '${record.customer} - ${record.quantity} unidad(es)',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Chip(
+        visualDensity: VisualDensity.compact,
+        backgroundColor: color.withValues(alpha: 0.12),
+        label: Text(record.status.label),
+        labelStyle: TextStyle(color: color, fontWeight: FontWeight.w900),
+      ),
+    );
+  }
+}
+
+Color _returnStatusColor(ReturnStatus status) {
+  return switch (status) {
+    ReturnStatus.registered => AppColors.amber,
+    ReturnStatus.restocked => AppColors.leaf,
+    ReturnStatus.notRestockable => AppColors.coral,
+  };
 }
 
 class _DispatchCard extends StatelessWidget {

@@ -552,6 +552,8 @@ class _OrderCard extends StatelessWidget {
                 '${order.itemCount} unidades - ${CurrencyFormatService.money(order.total, currency)}',
                 style: const TextStyle(color: AppColors.muted),
               ),
+              const SizedBox(height: 10),
+              _OrderProgress(status: order.status),
               const SizedBox(height: 12),
               if (onEdit != null || onAdvance != null)
                 Row(
@@ -583,6 +585,90 @@ class _OrderCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _OrderProgress extends StatelessWidget {
+  final OrderStatus status;
+
+  const _OrderProgress({required this.status});
+
+  static const _steps = [
+    OrderStatus.pending,
+    OrderStatus.preparing,
+    OrderStatus.ready,
+    OrderStatus.dispatched,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = _steps.indexOf(status);
+
+    return Row(
+      children: [
+        for (var index = 0; index < _steps.length; index++) ...[
+          Expanded(
+            child: _OrderProgressStep(
+              label: _steps[index].label,
+              active: index <= currentIndex,
+              current: index == currentIndex,
+            ),
+          ),
+          if (index < _steps.length - 1)
+            Container(
+              width: 14,
+              height: 2,
+              margin: const EdgeInsets.only(bottom: 20),
+              color: index < currentIndex ? AppColors.teal : AppColors.border,
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _OrderProgressStep extends StatelessWidget {
+  final String label;
+  final bool active;
+  final bool current;
+
+  const _OrderProgressStep({
+    required this.label,
+    required this.active,
+    required this.current,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppColors.teal : AppColors.muted;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: current ? 13 : 10,
+          height: current ? 13 : 10,
+          decoration: BoxDecoration(
+            color: active ? AppColors.teal : Colors.white,
+            shape: BoxShape.circle,
+            border:
+                Border.all(color: active ? AppColors.teal : AppColors.border),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: current ? FontWeight.w900 : FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

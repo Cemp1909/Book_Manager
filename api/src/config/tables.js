@@ -159,4 +159,20 @@ export const tableSchemas = {
       'observacion',
     ],
   },
+  historialActividad: {
+    table: 'historial_actividad',
+    id: 'id_actividad',
+    columns: [
+      'tipo',
+      'titulo',
+      'detalle',
+      'id_usuario',
+      'nombre_usuario',
+      'rol_usuario',
+      'fecha_hora',
+      'tipo_entidad',
+      'id_entidad',
+      'nombre_entidad',
+    ],
+  },
 };

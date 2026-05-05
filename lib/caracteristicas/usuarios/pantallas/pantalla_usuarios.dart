@@ -64,6 +64,7 @@ class _PendingApprovalAlert extends StatelessWidget {
 
 class _UsersScreenState extends State<UsersScreen> {
   late Future<List<AppUser>> _usersFuture;
+  _UserStatusFilter _statusFilter = _UserStatusFilter.all;
 
   @override
   void initState() {
@@ -102,6 +103,7 @@ class _UsersScreenState extends State<UsersScreen> {
           final pendingUsers = users
               .where((user) => user.status == AccountStatus.pendingApproval)
               .toList();
+          final visibleUsers = _filterUsers(users);
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
@@ -113,13 +115,79 @@ class _UsersScreenState extends State<UsersScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-              for (final user in users) ...[
-                _buildUserCard(user),
-                const SizedBox(height: 10),
-              ],
+              _buildStatusFilters(users),
+              const SizedBox(height: 12),
+              if (visibleUsers.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text(
+                      'No hay usuarios en este estado.',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                for (final user in visibleUsers) ...[
+                  _buildUserCard(user),
+                  const SizedBox(height: 10),
+                ],
             ],
           );
         },
+      ),
+    );
+  }
+
+  List<AppUser> _filterUsers(List<AppUser> users) {
+    return switch (_statusFilter) {
+      _UserStatusFilter.all => users,
+      _UserStatusFilter.pending => users
+          .where(
+            (user) =>
+                user.status == AccountStatus.pendingEmail ||
+                user.status == AccountStatus.pendingApproval,
+          )
+          .toList(),
+      _UserStatusFilter.active =>
+        users.where((user) => user.status == AccountStatus.active).toList(),
+      _UserStatusFilter.rejected =>
+        users.where((user) => user.status == AccountStatus.rejected).toList(),
+    };
+  }
+
+  Widget _buildStatusFilters(List<AppUser> users) {
+    final counts = <_UserStatusFilter, int>{
+      _UserStatusFilter.all: users.length,
+      _UserStatusFilter.pending: users
+          .where(
+            (user) =>
+                user.status == AccountStatus.pendingEmail ||
+                user.status == AccountStatus.pendingApproval,
+          )
+          .length,
+      _UserStatusFilter.active:
+          users.where((user) => user.status == AccountStatus.active).length,
+      _UserStatusFilter.rejected:
+          users.where((user) => user.status == AccountStatus.rejected).length,
+    };
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final filter in _UserStatusFilter.values) ...[
+            _UserFilterChip(
+              label: '${filter.label} ${counts[filter] ?? 0}',
+              selected: _statusFilter == filter,
+              onTap: () => setState(() => _statusFilter = filter),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
       ),
     );
   }
@@ -507,6 +575,9 @@ class _UsersScreenState extends State<UsersScreen> {
       title: user == null ? 'Usuario creado' : 'Usuario actualizado',
       detail: '${nameController.text.trim()} quedo como ${selectedRole.label}.',
       actor: widget.currentUser,
+      entityType: 'usuario',
+      entityId: emailController.text.trim().toLowerCase(),
+      entityName: nameController.text.trim(),
     );
     if (!mounted || !sheetContext.mounted) return;
 
@@ -548,6 +619,9 @@ class _UsersScreenState extends State<UsersScreen> {
         title: 'Usuario eliminado',
         detail: '${user.name} fue retirado del acceso local.',
         actor: widget.currentUser,
+        entityType: 'usuario',
+        entityId: user.email.toLowerCase(),
+        entityName: user.name,
       );
       if (!mounted) return;
       setState(_loadUsers);
@@ -566,6 +640,9 @@ class _UsersScreenState extends State<UsersScreen> {
       title: 'Usuario aprobado',
       detail: '${user.name} ya puede iniciar sesion.',
       actor: widget.currentUser,
+      entityType: 'usuario',
+      entityId: user.email.toLowerCase(),
+      entityName: user.name,
     );
     if (!mounted) return;
     setState(_loadUsers);
@@ -583,8 +660,51 @@ class _UsersScreenState extends State<UsersScreen> {
       title: 'Usuario rechazado',
       detail: '${user.name} no fue aprobado para ingresar.',
       actor: widget.currentUser,
+      entityType: 'usuario',
+      entityId: user.email.toLowerCase(),
+      entityName: user.name,
     );
     if (!mounted) return;
     setState(_loadUsers);
+  }
+}
+
+enum _UserStatusFilter {
+  all('Todos'),
+  pending('Pendientes'),
+  active('Activos'),
+  rejected('Rechazados');
+
+  final String label;
+
+  const _UserStatusFilter(this.label);
+}
+
+class _UserFilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _UserFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label),
+      labelStyle: const TextStyle(
+        color: AppColors.ink,
+        fontWeight: FontWeight.w800,
+      ),
+      selected: selected,
+      showCheckmark: false,
+      selectedColor: AppColors.teal.withValues(alpha: 0.14),
+      backgroundColor: Colors.white,
+      side: BorderSide(color: selected ? AppColors.teal : AppColors.border),
+      onSelected: (_) => onTap(),
+    );
   }
 }

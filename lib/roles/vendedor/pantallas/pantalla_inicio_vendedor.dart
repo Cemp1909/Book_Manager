@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:book_manager/datos/modelos/usuario_app.dart';
+import 'package:book_manager/caracteristicas/colegios/pantallas/pantalla_colegios.dart';
 import 'package:book_manager/caracteristicas/combos/pantallas/pantalla_combos.dart';
 import 'package:book_manager/caracteristicas/estadisticas/pantallas/pantalla_estadisticas.dart';
 import 'package:book_manager/caracteristicas/inicio/componentes/base_inicio_rol.dart';
@@ -66,6 +67,15 @@ class PantallaInicioVendedor extends StatelessWidget {
               label: 'Estadísticas',
             ),
             screen: StatisticsScreen(),
+          ),
+          const ItemNavegacionRol(
+            title: 'Colegios',
+            destination: NavigationDestination(
+              icon: Icon(Icons.school_outlined),
+              selectedIcon: Icon(Icons.school),
+              label: 'Colegios',
+            ),
+            screen: SchoolsScreen(canManageSchools: false),
           ),
           const ItemNavegacionRol(
             title: 'Combos',

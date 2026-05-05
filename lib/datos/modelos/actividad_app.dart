@@ -33,6 +33,9 @@ class AppActivity {
   final String actorName;
   final String actorRole;
   final DateTime createdAt;
+  final String entityType;
+  final String entityId;
+  final String entityName;
 
   const AppActivity({
     required this.id,
@@ -42,6 +45,9 @@ class AppActivity {
     required this.actorName,
     required this.actorRole,
     required this.createdAt,
+    this.entityType = '',
+    this.entityId = '',
+    this.entityName = '',
   });
 
   Map<String, String> toMap() {
@@ -53,6 +59,9 @@ class AppActivity {
       'actorName': actorName,
       'actorRole': actorRole,
       'createdAt': createdAt.toIso8601String(),
+      'entityType': entityType,
+      'entityId': entityId,
+      'entityName': entityName,
     };
   }
 
@@ -66,6 +75,9 @@ class AppActivity {
       actorRole: map['actorRole']?.toString() ?? 'Operacion',
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? '') ??
           DateTime.now(),
+      entityType: map['entityType']?.toString() ?? '',
+      entityId: map['entityId']?.toString() ?? '',
+      entityName: map['entityName']?.toString() ?? '',
     );
   }
 }

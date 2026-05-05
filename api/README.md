@@ -81,6 +81,7 @@ Recursos disponibles:
 - `remisiones`
 - `devoluciones`
 - `devolucion-detalle`
+- `historial-actividad`
 
 ## Ejemplos
 
@@ -124,8 +125,54 @@ curl -X POST http://localhost:3000/api/v1/libros \
   }'
 ```
 
+Registrar historial:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/historial-actividad \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tipo":"orders",
+    "titulo":"Pedido despachado",
+    "detalle":"Pedido #1001 fue marcado como despachado.",
+    "id_usuario":1,
+    "nombre_usuario":"Administrador",
+    "rol_usuario":"Administrador",
+    "fecha_hora":"2026-05-04T10:30:00",
+    "tipo_entidad":"pedido",
+    "id_entidad":"1001",
+    "nombre_entidad":"Pedido #1001"
+  }'
+```
+
 ## Notas importantes
 
 - La API usa whitelist de tablas y columnas. El cliente no puede enviar nombres de tabla libres.
 - Las columnas con string vacio se convierten a `null`, porque Oracle trata `''` como `NULL`.
 - Para produccion faltara agregar autenticacion por token/JWT antes de exponer la API publicamente.
+
+## Tabla adicional para historial
+
+Si todavia no la creaste en Oracle, agrega:
+
+```sql
+CREATE TABLE historial_actividad (
+    id_actividad NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tipo VARCHAR2(50) NOT NULL,
+    titulo VARCHAR2(150) NOT NULL,
+    detalle VARCHAR2(1000) NOT NULL,
+    id_usuario NUMBER,
+    nombre_usuario VARCHAR2(150) NOT NULL,
+    rol_usuario VARCHAR2(80) NOT NULL,
+    fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    tipo_entidad VARCHAR2(50),
+    id_entidad VARCHAR2(100),
+    nombre_entidad VARCHAR2(200),
+    CONSTRAINT fk_historial_usuario FOREIGN KEY (id_usuario)
+        REFERENCES usuarios(id_usuario)
+);
+
+CREATE INDEX idx_historial_tipo ON historial_actividad(tipo);
+CREATE INDEX idx_historial_usuario ON historial_actividad(id_usuario);
+CREATE INDEX idx_historial_entidad ON historial_actividad(tipo_entidad, id_entidad);
+CREATE INDEX idx_historial_fecha ON historial_actividad(fecha_hora);
+```

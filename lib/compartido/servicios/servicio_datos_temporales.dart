@@ -27,6 +27,7 @@ class TemporaryDataService extends ChangeNotifier {
   final List<AppWarehouse> _warehouses = List.of(_seedWarehouses);
   final List<InventoryMovementRecord> _inventoryMovements = [];
   final List<ScanLogRecord> _scanLogs = [];
+  final Set<String> _generatedRemissions = {};
   CompanySettings _settings = CompanySettings.defaults;
   bool _settingsLoaded = false;
 
@@ -62,6 +63,15 @@ class TemporaryDataService extends ChangeNotifier {
   int get todayOrders => _orders.length;
 
   int get income => _orders.fold(0, (sum, order) => sum + order.total);
+
+  bool hasGeneratedRemission(String orderId) {
+    return _generatedRemissions.contains(orderId);
+  }
+
+  void markRemissionGenerated(String orderId) {
+    _generatedRemissions.add(orderId);
+    notifyListeners();
+  }
 
   int currentSchoolYear() => DateTime.now().year;
 

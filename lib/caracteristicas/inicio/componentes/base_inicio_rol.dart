@@ -195,6 +195,9 @@ class _BaseInicioRolState extends State<BaseInicioRol> {
       title: 'Pedido actualizado',
       detail: 'Pedido ${order.id} paso a ${nextStatus.label}.',
       actor: widget.user,
+      entityType: 'pedido',
+      entityId: order.id,
+      entityName: 'Pedido #${order.id}',
     );
   }
 

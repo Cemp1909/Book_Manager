@@ -343,6 +343,9 @@ class _AddBookScreenState extends State<AddBookScreen> {
               title: 'Libro actualizado',
               detail: '${book.title} quedo con ${book.stock} unidades.',
               actor: widget.currentUser,
+              entityType: 'libro',
+              entityId: book.isbn,
+              entityName: book.title,
             );
           } else {
             await DatabaseService.instance.insertBook(book);
@@ -352,6 +355,9 @@ class _AddBookScreenState extends State<AddBookScreen> {
               detail:
                   '${book.title} entro al inventario con ${book.stock} unidades.',
               actor: widget.currentUser,
+              entityType: 'libro',
+              entityId: book.isbn,
+              entityName: book.title,
             );
           }
           if (!mounted) return;

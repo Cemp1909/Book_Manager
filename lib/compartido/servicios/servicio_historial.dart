@@ -17,6 +17,19 @@ class ActivityLogService extends ChangeNotifier {
 
   List<AppActivity> get activities => List.unmodifiable(_activities);
 
+  List<AppActivity> activitiesForEntity({
+    required String entityType,
+    required String entityId,
+  }) {
+    return _activities
+        .where(
+          (activity) =>
+              activity.entityType == entityType &&
+              activity.entityId == entityId,
+        )
+        .toList();
+  }
+
   Future<void> load() async {
     if (_loaded) return;
 
@@ -50,6 +63,9 @@ class ActivityLogService extends ChangeNotifier {
     required String title,
     required String detail,
     AppUser? actor,
+    String entityType = '',
+    String entityId = '',
+    String entityName = '',
   }) async {
     await load();
 
@@ -64,6 +80,9 @@ class ActivityLogService extends ChangeNotifier {
         actorName: actor?.name ?? 'Sistema',
         actorRole: actor?.role.label ?? 'Operacion',
         createdAt: now,
+        entityType: entityType,
+        entityId: entityId,
+        entityName: entityName,
       ),
     );
 
