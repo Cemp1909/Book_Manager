@@ -261,18 +261,19 @@ class _CombosScreenState extends State<CombosScreen> {
               const SizedBox(height: 12),
             ],
             FilledButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 for (final book in _books) {
                   final value =
                       int.tryParse(controllers[book.isbn]?.text ?? '');
                   if (value == null || value < 0) return;
-                  _dataService.setBookPriceForSchool(
+                  await _dataService.setBookPriceForSchool(
                     bookIsbn: book.isbn,
                     schoolId: schoolId,
                     year: year,
                     price: value,
                   );
                 }
+                if (!context.mounted) return;
                 Navigator.pop(context, true);
               },
               icon: const Icon(Icons.save_outlined),
@@ -532,7 +533,7 @@ class _CombosScreenState extends State<CombosScreen> {
                 ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   final discount = int.tryParse(discountController.text);
                   final customPrice = priceController.text.trim().isEmpty
                       ? null
@@ -547,7 +548,7 @@ class _CombosScreenState extends State<CombosScreen> {
                   }
 
                   if (isEditing) {
-                    _dataService.updateCombo(
+                    await _dataService.updateCombo(
                       comboId: initialCombo.id,
                       name: nameController.text.trim(),
                       audience: audienceController.text.trim(),
@@ -558,7 +559,7 @@ class _CombosScreenState extends State<CombosScreen> {
                       bookIsbns: selectedIsbns.toList(),
                     );
                   } else {
-                    _dataService.addCombo(
+                    await _dataService.addCombo(
                       name: nameController.text.trim(),
                       audience: audienceController.text.trim(),
                       cityId: selectedCityId,
@@ -568,6 +569,7 @@ class _CombosScreenState extends State<CombosScreen> {
                       bookIsbns: selectedIsbns.toList(),
                     );
                   }
+                  if (!context.mounted) return;
                   Navigator.pop(context, true);
                 },
                 child: Text(isEditing ? 'Guardar cambios' : 'Crear combo'),

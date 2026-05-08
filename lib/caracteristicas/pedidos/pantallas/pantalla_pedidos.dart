@@ -3,6 +3,7 @@ import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/combo_libros.dart';
 import 'package:book_manager/datos/modelos/cliente_escolar.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
+import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
 import 'package:book_manager/datos/modelos/pedido_app.dart';
 import 'package:book_manager/caracteristicas/pedidos/componentes/hoja_detalle_pedido.dart';
@@ -13,12 +14,14 @@ class OrdersScreen extends StatefulWidget {
   final bool canCreateOrders;
   final bool canEditOrders;
   final bool canAdvanceOrders;
+  final AppUser? currentUser;
 
   const OrdersScreen({
     super.key,
     this.canCreateOrders = true,
     this.canEditOrders = false,
     this.canAdvanceOrders = true,
+    this.currentUser,
   });
 
   @override
@@ -435,13 +438,26 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (savedOrder == null) return;
 
     if (initialOrder == null) {
-      _dataService.addOrder(savedOrder);
-      _message('Pedido creado para ${savedOrder.customer}');
+      try {
+        final persistedOrder = await _dataService.addOrder(
+          savedOrder,
+          user: widget.currentUser,
+          books: _books,
+        );
+        _message(
+            'Pedido #${persistedOrder.id} creado para ${savedOrder.customer}');
+      } catch (error) {
+        _message('No se pudo guardar el pedido en la base de datos: $error');
+      }
       return;
     }
 
-    _dataService.updateOrder(savedOrder);
-    _message('Pedido actualizado para ${savedOrder.customer}');
+    try {
+      await _dataService.updateOrder(savedOrder);
+      _message('Pedido actualizado para ${savedOrder.customer}');
+    } catch (error) {
+      _message('No se pudo actualizar el pedido en la base de datos: $error');
+    }
   }
 
   List<_OrderProduct> _productsForSchool(String schoolId) {
@@ -465,17 +481,26 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return _dataService.schools.first;
   }
 
-  void _advanceOrder(AppOrder order) {
+  Future<void> _advanceOrder(AppOrder order) async {
     final nextStatus = switch (order.status) {
       OrderStatus.pending => OrderStatus.preparing,
       OrderStatus.preparing => OrderStatus.ready,
-      OrderStatus.ready => OrderStatus.dispatched,
+      OrderStatus.ready => OrderStatus.ready,
       OrderStatus.dispatched => OrderStatus.dispatched,
     };
 
-    if (nextStatus == order.status) return;
-    _dataService.updateOrderStatus(order.id, nextStatus);
-    _message('Pedido #${order.id}: ${nextStatus.label}');
+    if (nextStatus == order.status) {
+      if (order.status == OrderStatus.ready) {
+        _message('Despacha este pedido desde el modulo Despachos.');
+      }
+      return;
+    }
+    try {
+      await _dataService.updateOrderStatus(order.id, nextStatus);
+      _message('Pedido #${order.id}: ${nextStatus.label}');
+    } catch (error) {
+      _message('No se pudo actualizar el pedido en la base de datos: $error');
+    }
   }
 
   String _money(int value) {

@@ -35,6 +35,21 @@ class Book {
     };
   }
 
+  Map<String, dynamic> toApiMap() {
+    return {
+      'titulo': title,
+      'isbn': isbn,
+      'grado': '',
+      'area': genre,
+      'stock': stock,
+      'codigo_qr': isbn,
+      'autor': author,
+      'descripcion': description,
+      'precio_base': price,
+      'foto_portada': coverUrl,
+    };
+  }
+
   Book copyWith({
     int? id,
     String? title,
@@ -70,6 +85,29 @@ class Book {
       genre: map['genre'] as String,
       description: map['description'] as String,
       coverUrl: map['coverUrl'] as String? ?? '',
+    );
+  }
+
+  factory Book.fromApiMap(Map<String, dynamic> map) {
+    int? asInt(Object? value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value.toString());
+    }
+
+    String asString(Object? value) => value?.toString() ?? '';
+
+    return Book(
+      id: asInt(map['ID_LIBRO'] ?? map['id_libro']),
+      title: asString(map['TITULO'] ?? map['titulo']),
+      author: asString(map['AUTOR'] ?? map['autor']),
+      isbn: asString(map['ISBN'] ?? map['isbn']),
+      price: asInt(map['PRECIO_BASE'] ?? map['precio_base']) ?? 0,
+      stock: asInt(map['STOCK'] ?? map['stock']) ?? 0,
+      genre: asString(map['AREA'] ?? map['area']),
+      description: asString(map['DESCRIPCION'] ?? map['descripcion']),
+      coverUrl: asString(map['FOTO_PORTADA'] ?? map['foto_portada']),
     );
   }
 }

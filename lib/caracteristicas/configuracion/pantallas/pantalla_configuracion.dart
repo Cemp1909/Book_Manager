@@ -50,7 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Border.all(color: AppColors.teal.withValues(alpha: 0.2)),
               ),
               child: const Text(
-                'Esta configuracion queda local por ahora. Cuando conectes la base de datos, solo cambiamos el servicio.',
+                'No hay una tabla Oracle creada para guardar esta configuracion.',
                 style: TextStyle(
                   color: AppColors.tealDark,
                   fontWeight: FontWeight.w800,

@@ -388,8 +388,8 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    if (result.verificationCode != null) {
-      await _showVerificationDialog(result.verificationCode!);
+    if (!_isLogin) {
+      await _showVerificationDialog();
       return;
     }
 
@@ -398,7 +398,7 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Future<void> _showVerificationDialog(String verificationCode) async {
+  Future<void> _showVerificationDialog() async {
     final codeController = TextEditingController();
     final email = _emailController.text.trim();
 
@@ -412,11 +412,6 @@ class _AuthScreenState extends State<AuthScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Enviamos un codigo a $email.'),
-            const SizedBox(height: 8),
-            Text(
-              'Codigo de prueba: $verificationCode',
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
             const SizedBox(height: 12),
             TextField(
               controller: codeController,
@@ -524,8 +519,8 @@ class _AuthScreenState extends State<AuthScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Recuperar clave'),
         content: const Text(
-          'Esta cuenta se guarda localmente en este dispositivo. '
-          'Si olvidaste la clave, crea un usuario nuevo desde Registro.',
+          'Las cuentas se guardan en la base de datos. '
+          'Si olvidaste la clave, solicita al administrador actualizar tu usuario.',
         ),
         actions: [
           TextButton(

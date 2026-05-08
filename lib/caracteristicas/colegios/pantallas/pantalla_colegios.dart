@@ -330,10 +330,10 @@ class _SchoolsScreenState extends State<SchoolsScreen> {
             ),
             const SizedBox(height: 16),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 if (controller.text.trim().isEmpty) return;
-                _dataService.addCity(controller.text);
-                ActivityLogService.instance.record(
+                await _dataService.addCity(controller.text);
+                await ActivityLogService.instance.record(
                   type: ActivityType.settings,
                   title: 'Ciudad creada',
                   detail: controller.text.trim(),
@@ -341,6 +341,7 @@ class _SchoolsScreenState extends State<SchoolsScreen> {
                   entityId: controller.text.trim().toLowerCase(),
                   entityName: controller.text.trim(),
                 );
+                if (!context.mounted) return;
                 Navigator.pop(context, true);
               },
               child: const Text('Guardar ciudad'),
@@ -432,9 +433,9 @@ class _SchoolsScreenState extends State<SchoolsScreen> {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   if (nameController.text.trim().isEmpty) return;
-                  _dataService.addSchool(
+                  await _dataService.addSchool(
                     cityId: cityId,
                     name: nameController.text,
                     address: addressController.text,
@@ -450,6 +451,7 @@ class _SchoolsScreenState extends State<SchoolsScreen> {
                     entityId: school.id,
                     entityName: school.name,
                   );
+                  if (!context.mounted) return;
                   Navigator.pop(context, true);
                 },
                 child: const Text('Guardar colegio'),

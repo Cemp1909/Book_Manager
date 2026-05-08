@@ -23,12 +23,27 @@ PORT=3000
 ORACLE_USER=BOOK_MANAGER
 ORACLE_PASSWORD=tu_clave
 ORACLE_CONNECT_STRING=host:1521/service_name
+ORACLE_POOL_MIN=1
+ORACLE_POOL_MAX=8
+ORACLE_POOL_INCREMENT=1
 ```
 
 Si usas wallet de Autonomous Database, configura tambien:
 
 ```env
 TNS_ADMIN=/ruta/a/wallet
+# ORACLE_WALLET_PASSWORD=clave_del_wallet
+```
+
+Para enviar codigos de verificacion por correo, configura SMTP:
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=correo@example.com
+SMTP_PASSWORD=tu_clave_smtp
+SMTP_FROM="Book Manager <correo@example.com>"
 ```
 
 ## Ejecutar
@@ -40,6 +55,7 @@ npm run dev
 Pruebas rapidas:
 
 ```bash
+npm run check:db
 curl http://localhost:3000/health
 curl http://localhost:3000/health/db
 ```

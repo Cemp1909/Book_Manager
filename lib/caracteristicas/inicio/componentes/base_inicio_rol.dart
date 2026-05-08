@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/actividad_app.dart';
@@ -189,8 +191,9 @@ class _BaseInicioRolState extends State<BaseInicioRol> {
 
   void _advanceOrder(AppOrder order) {
     final nextStatus = _nextOrderStatus(order.status);
-    TemporaryDataService.instance.updateOrderStatus(order.id, nextStatus);
-    ActivityLogService.instance.record(
+    unawaited(
+        TemporaryDataService.instance.updateOrderStatus(order.id, nextStatus));
+    unawaited(ActivityLogService.instance.record(
       type: ActivityType.orders,
       title: 'Pedido actualizado',
       detail: 'Pedido ${order.id} paso a ${nextStatus.label}.',
@@ -198,7 +201,7 @@ class _BaseInicioRolState extends State<BaseInicioRol> {
       entityType: 'pedido',
       entityId: order.id,
       entityName: 'Pedido #${order.id}',
-    );
+    ));
   }
 
   OrderStatus _nextOrderStatus(OrderStatus status) {

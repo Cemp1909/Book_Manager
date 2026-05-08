@@ -1221,7 +1221,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     try {
       await _databaseService.updateBook(updatedBook);
-      _dataService.addInventoryMovement(
+      await _dataService.addInventoryMovement(
         InventoryMovementRecord(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           date: DateTime.now(),
@@ -1431,12 +1431,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               if (nameController.text.trim().isEmpty) return;
-              _dataService.addWarehouse(
+              await _dataService.addWarehouse(
                 name: nameController.text,
                 location: locationController.text,
               );
+              if (!context.mounted) return;
               Navigator.pop(context, true);
             },
             child: const Text('Guardar'),

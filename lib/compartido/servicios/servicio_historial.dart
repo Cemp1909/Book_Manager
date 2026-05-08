@@ -1,7 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:book_manager/datos/api/api_client.dart';
 import 'package:book_manager/datos/modelos/actividad_app.dart';
 import 'package:book_manager/datos/modelos/usuario_app.dart';
 
@@ -9,10 +7,10 @@ class ActivityLogService extends ChangeNotifier {
   ActivityLogService._();
 
   static final ActivityLogService instance = ActivityLogService._();
-  static const _activitiesKey = 'activity_log_items';
   static const _maxActivities = 120;
 
   final List<AppActivity> _activities = [];
+  final ApiClient _api = ApiClient.instance;
   bool _loaded = false;
 
   List<AppActivity> get activities => List.unmodifiable(_activities);
@@ -33,24 +31,18 @@ class ActivityLogService extends ChangeNotifier {
   Future<void> load() async {
     if (_loaded) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final rawActivities = prefs.getString(_activitiesKey);
-    if (rawActivities != null) {
-      final decoded = jsonDecode(rawActivities);
-      if (decoded is List) {
+    try {
+      final response = await _api.get('/api/v1/historial-actividad?limit=120');
+      final data = response['data'];
+      if (data is List) {
         _activities
           ..clear()
-          ..addAll(
-            decoded
-                .whereType<Map>()
-                .map(
-                  (map) => AppActivity.fromMap(
-                    Map<String, dynamic>.from(map),
-                  ),
-                )
-                .toList(),
-          );
+          ..addAll(data.whereType<Map>().map((row) {
+            return _activityFromOracle(Map<String, dynamic>.from(row));
+          }));
       }
+    } catch (_) {
+      _activities.clear();
     }
 
     _activities.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -90,22 +82,47 @@ class ActivityLogService extends ChangeNotifier {
       _activities.removeRange(_maxActivities, _activities.length);
     }
 
-    await _save();
+    try {
+      await _api.post('/api/v1/historial-actividad', {
+        'tipo': type.name,
+        'titulo': title,
+        'detalle': detail,
+        'id_usuario': null,
+        'nombre_usuario': actor?.name ?? 'Sistema',
+        'rol_usuario': actor?.role.label ?? 'Operacion',
+        'fecha_hora': now.toIso8601String(),
+        'tipo_entidad': entityType,
+        'id_entidad': entityId,
+        'nombre_entidad': entityName,
+      });
+    } catch (_) {}
     notifyListeners();
   }
 
   Future<void> clear() async {
     await load();
     _activities.clear();
-    await _save();
     notifyListeners();
   }
 
-  Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _activitiesKey,
-      jsonEncode(_activities.map((activity) => activity.toMap()).toList()),
+  AppActivity _activityFromOracle(Map<String, dynamic> map) {
+    return AppActivity(
+      id: (map['ID_ACTIVIDAD'] ?? map['id_actividad'] ?? '').toString(),
+      type: activityTypeFromStorage((map['TIPO'] ?? map['tipo'])?.toString()),
+      title: (map['TITULO'] ?? map['titulo'] ?? '').toString(),
+      detail: (map['DETALLE'] ?? map['detalle'] ?? '').toString(),
+      actorName: (map['NOMBRE_USUARIO'] ?? map['nombre_usuario'] ?? 'Sistema')
+          .toString(),
+      actorRole:
+          (map['ROL_USUARIO'] ?? map['rol_usuario'] ?? 'Operacion').toString(),
+      createdAt: DateTime.tryParse(
+            (map['FECHA_HORA'] ?? map['fecha_hora'] ?? '').toString(),
+          ) ??
+          DateTime.now(),
+      entityType: (map['TIPO_ENTIDAD'] ?? map['tipo_entidad'] ?? '').toString(),
+      entityId: (map['ID_ENTIDAD'] ?? map['id_entidad'] ?? '').toString(),
+      entityName:
+          (map['NOMBRE_ENTIDAD'] ?? map['nombre_entidad'] ?? '').toString(),
     );
   }
 }

@@ -2,7 +2,7 @@ import oracledb from 'oracledb';
 import { withConnection } from '../db/oracle.js';
 import { HttpError, sendCreated } from '../utils/http.js';
 
-const maxLimit = 200;
+const maxLimit = 2000;
 
 export function createCrudController(schema) {
   return {

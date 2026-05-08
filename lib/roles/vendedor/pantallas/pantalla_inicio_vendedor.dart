@@ -86,9 +86,9 @@ class PantallaInicioVendedor extends StatelessWidget {
             ),
             screen: CombosScreen(canEditCombos: false),
           ),
-          const ItemNavegacionRol(
+          ItemNavegacionRol(
             title: 'Pedidos',
-            destination: NavigationDestination(
+            destination: const NavigationDestination(
               icon: Icon(Icons.shopping_cart_outlined),
               selectedIcon: Icon(Icons.shopping_cart),
               label: 'Pedidos',
@@ -97,6 +97,7 @@ class PantallaInicioVendedor extends StatelessWidget {
               canCreateOrders: true,
               canEditOrders: true,
               canAdvanceOrders: true,
+              currentUser: user,
             ),
           ),
           ItemNavegacionRol(

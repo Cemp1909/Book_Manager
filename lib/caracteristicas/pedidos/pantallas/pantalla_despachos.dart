@@ -110,7 +110,7 @@ class DispatchesScreen extends StatelessWidget {
         order: order,
         settings: TemporaryDataService.instance.settings,
       );
-      TemporaryDataService.instance.markRemissionGenerated(order.id);
+      await TemporaryDataService.instance.markRemissionGenerated(order.id);
       await ActivityLogService.instance.record(
         type: ActivityType.orders,
         title: 'Remision generada',
@@ -168,7 +168,44 @@ class DispatchesScreen extends StatelessWidget {
       return;
     }
 
-    TemporaryDataService.instance.updateOrderStatus(
+    if (!context.mounted) return;
+    final dispatchDetails = await _discountStockForOrder(context, order);
+    if (dispatchDetails == null) return;
+
+    try {
+      final dataService = TemporaryDataService.instance;
+      final warehouse = dataService.warehouses.isNotEmpty
+          ? dataService.warehouses.first
+          : const AppWarehouse(
+              id: 'principal',
+              name: 'Bodega principal',
+              location: 'Sin ubicacion',
+            );
+      await TemporaryDataService.instance.persistDispatch(
+        order: order,
+        user: currentUser,
+        details: dispatchDetails,
+        movement: InventoryMovementRecord(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          date: DateTime.now(),
+          movementType: 'salida',
+          warehouse: warehouse,
+          user: currentUser,
+          total:
+              dispatchDetails.fold(0, (sum, detail) => sum + detail.quantity),
+          observation: 'Despacho del pedido #${order.id}',
+          details: dispatchDetails,
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar el despacho: $error')),
+      );
+      return;
+    }
+
+    await TemporaryDataService.instance.updateOrderStatus(
       order.id,
       OrderStatus.dispatched,
     );
@@ -185,6 +222,71 @@ class DispatchesScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Pedido #${order.id} despachado')),
     );
+  }
+
+  Future<List<InventoryMovementDetail>?> _discountStockForOrder(
+    BuildContext context,
+    AppOrder order,
+  ) async {
+    try {
+      final books = await DatabaseService.instance.getBooks();
+      final requiredByIsbn = <String, int>{};
+      final booksByIsbn = {for (final book in books) book.isbn: book};
+
+      for (final item in order.items) {
+        final itemBooks = item.isCombo
+            ? _booksForCombo(item.title, books)
+            : _booksForItem(item, books);
+
+        for (final book in itemBooks) {
+          requiredByIsbn[book.isbn] =
+              (requiredByIsbn[book.isbn] ?? 0) + item.quantity;
+        }
+      }
+
+      if (requiredByIsbn.isEmpty) {
+        if (!context.mounted) return null;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se encontro inventario para descontar.'),
+          ),
+        );
+        return null;
+      }
+
+      final movementDetails = <InventoryMovementDetail>[];
+      for (final entry in requiredByIsbn.entries) {
+        final book = booksByIsbn[entry.key];
+        if (book == null || book.id == null) continue;
+
+        movementDetails.add(
+          InventoryMovementDetail(
+            bookIsbn: book.isbn,
+            bookTitle: book.title,
+            quantity: entry.value,
+          ),
+        );
+      }
+
+      if (movementDetails.isEmpty) return null;
+      await ActivityLogService.instance.record(
+        type: ActivityType.inventory,
+        title: 'Stock descontado por despacho',
+        detail:
+            'Pedido #${order.id}: ${movementDetails.length} referencia(s), ${movementDetails.fold(0, (sum, detail) => sum + detail.quantity)} unidad(es).',
+        actor: currentUser,
+        entityType: 'pedido',
+        entityId: order.id,
+        entityName: 'Pedido #${order.id}',
+      );
+      return movementDetails;
+    } catch (error) {
+      if (!context.mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo descontar stock: $error')),
+      );
+      return null;
+    }
   }
 
   Future<List<String>> _validateBeforeDispatch(AppOrder order) async {
@@ -450,7 +552,19 @@ class DispatchesScreen extends StatelessWidget {
         status: restocked ? ReturnStatus.restocked : ReturnStatus.registered,
       );
     }
-    TemporaryDataService.instance.addReturn(savedRecord);
+    try {
+      await TemporaryDataService.instance.addReturn(
+        savedRecord,
+        user: currentUser,
+        item: selectedItem,
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo guardar la devolucion: $error')),
+      );
+      return;
+    }
     await ActivityLogService.instance.record(
       type: ActivityType.orders,
       title: 'Devolucion registrada',
@@ -514,7 +628,7 @@ class DispatchesScreen extends StatelessWidget {
 
       final dataService = TemporaryDataService.instance;
       final warehouse = dataService.warehouses.first;
-      dataService.addInventoryMovement(
+      await dataService.addInventoryMovement(
         InventoryMovementRecord(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           date: DateTime.now(),

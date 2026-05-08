@@ -1,6 +1,8 @@
 import cors from 'cors';
 import express from 'express';
 import morgan from 'morgan';
+import { buildAuthRoutes } from './routes/authRoutes.js';
+import { buildDomainRoutes } from './routes/domainRoutes.js';
 import { buildHealthRoutes } from './routes/healthRoutes.js';
 import { buildResourceRoutes } from './routes/resourceRoutes.js';
 
@@ -12,6 +14,8 @@ export function buildApp() {
   app.use(morgan('dev'));
 
   app.use('/health', buildHealthRoutes());
+  app.use('/api/v1/auth', buildAuthRoutes());
+  app.use('/api/v1/domain', buildDomainRoutes());
   app.use('/api/v1', buildResourceRoutes());
 
   app.use((req, res) => {

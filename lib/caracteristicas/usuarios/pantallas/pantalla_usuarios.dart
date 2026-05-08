@@ -202,101 +202,194 @@ class _UsersScreenState extends State<UsersScreen> {
         borderRadius: BorderRadius.circular(8),
         side: const BorderSide(color: AppColors.border),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
-        leading: CircleAvatar(
-          backgroundColor: isCurrentUser ? AppColors.navy : AppColors.teal,
-          child: Text(
-            user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        title: Text(
-          user.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 2),
-            Text(user.email),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Chip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text(user.role.label),
-                  labelStyle: const TextStyle(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w700,
+                CircleAvatar(
+                  backgroundColor:
+                      isCurrentUser ? AppColors.navy : AppColors.teal,
+                  child: Text(
+                    user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-                if (isCurrentUser)
-                  const Chip(
-                    visualDensity: VisualDensity.compact,
-                    avatar: Icon(
-                      Icons.verified_user,
-                      size: 16,
-                      color: AppColors.ink,
-                    ),
-                    label: Text('Sesión activa'),
-                    labelStyle: TextStyle(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                Chip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text(user.status.label),
-                  labelStyle: TextStyle(
-                    color: _statusColor(user.status),
-                    fontWeight: FontWeight.w800,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        user.email,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          Chip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text(user.role.label),
+                            labelStyle: const TextStyle(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (isCurrentUser)
+                            const Chip(
+                              visualDensity: VisualDensity.compact,
+                              avatar: Icon(
+                                Icons.verified_user,
+                                size: 16,
+                                color: AppColors.ink,
+                              ),
+                              label: Text('Sesión activa'),
+                              labelStyle: TextStyle(
+                                color: AppColors.ink,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          Chip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text(user.status.label),
+                            labelStyle: TextStyle(
+                              color: _statusColor(user.status),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  if (user.status == AccountStatus.pendingApproval)
+                    IconButton(
+                      tooltip: 'Aprobar usuario',
+                      icon: const Icon(Icons.check_circle_outline),
+                      color: AppColors.leaf,
+                      onPressed: () => _approveUser(user),
+                    ),
+                  if (user.status == AccountStatus.pendingApproval)
+                    IconButton(
+                      tooltip: 'Rechazar usuario',
+                      icon: const Icon(Icons.block_outlined),
+                      color: AppColors.coral,
+                      onPressed: () => _rejectUser(user),
+                    ),
+                  IconButton(
+                    tooltip: 'Editar usuario',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _showUserForm(user: user),
+                  ),
+                  IconButton(
+                    tooltip: 'Eliminar usuario',
+                    icon: const Icon(Icons.delete_outline),
+                    color: Theme.of(context).colorScheme.error,
+                    onPressed:
+                        isCurrentUser ? null : () => _confirmDelete(user),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-        trailing: Wrap(
-          spacing: 4,
-          children: [
-            if (user.status == AccountStatus.pendingApproval)
-              IconButton(
-                tooltip: 'Aprobar usuario',
-                icon: const Icon(Icons.check_circle_outline),
-                color: AppColors.leaf,
-                onPressed: () => _approveUser(user),
+      ),
+    );
+  }
+
+  Widget _buildPendingApprovalTile(AppUser user) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.person_add_alt_1),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      user.email,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user.role.label,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            if (user.status == AccountStatus.pendingApproval)
-              IconButton(
-                tooltip: 'Rechazar usuario',
-                icon: const Icon(Icons.block_outlined),
-                color: AppColors.coral,
-                onPressed: () => _rejectUser(user),
-              ),
-            IconButton(
-              tooltip: 'Editar usuario',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => _showUserForm(user: user),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                IconButton(
+                  tooltip: 'Aprobar',
+                  icon: const Icon(Icons.check_circle_outline),
+                  color: AppColors.leaf,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _approveUser(user);
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Rechazar',
+                  icon: const Icon(Icons.block_outlined),
+                  color: AppColors.coral,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _rejectUser(user);
+                  },
+                ),
+              ],
             ),
-            IconButton(
-              tooltip: 'Eliminar usuario',
-              icon: const Icon(Icons.delete_outline),
-              color: Theme.of(context).colorScheme.error,
-              onPressed: isCurrentUser ? null : () => _confirmDelete(user),
-            ),
-          ],
-        ),
+          ),
+          const Divider(height: 18),
+        ],
       ),
     );
   }
@@ -316,36 +409,7 @@ class _UsersScreenState extends State<UsersScreen> {
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
-          for (final user in users)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.person_add_alt_1),
-              title: Text(user.name),
-              subtitle: Text('${user.email} - ${user.role.label}'),
-              trailing: Wrap(
-                spacing: 4,
-                children: [
-                  IconButton(
-                    tooltip: 'Aprobar',
-                    icon: const Icon(Icons.check_circle_outline),
-                    color: AppColors.leaf,
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _approveUser(user);
-                    },
-                  ),
-                  IconButton(
-                    tooltip: 'Rechazar',
-                    icon: const Icon(Icons.block_outlined),
-                    color: AppColors.coral,
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _rejectUser(user);
-                    },
-                  ),
-                ],
-              ),
-            ),
+          for (final user in users) _buildPendingApprovalTile(user),
         ],
       ),
     );
@@ -617,7 +681,7 @@ class _UsersScreenState extends State<UsersScreen> {
       await ActivityLogService.instance.record(
         type: ActivityType.users,
         title: 'Usuario eliminado',
-        detail: '${user.name} fue retirado del acceso local.',
+        detail: '${user.name} fue retirado de la base de datos.',
         actor: widget.currentUser,
         entityType: 'usuario',
         entityId: user.email.toLowerCase(),
