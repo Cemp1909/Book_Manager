@@ -27,6 +27,8 @@ services:
         value: "120000"
       - key: ORACLE_WALLET_TGZ_BASE64
         sync: false
+      - key: ORACLE_WALLET_PASSWORD
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
