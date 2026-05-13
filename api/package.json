@@ -7,9 +7,11 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "prestart": "node src/scripts/prepareWallet.js",
     "start": "node src/server.js",
     "check": "node --check src/server.js && node --check src/scripts/checkDb.js",
-    "check:db": "node src/scripts/checkDb.js"
+    "check:db": "node src/scripts/checkDb.js",
+    "prepare:wallet": "node src/scripts/prepareWallet.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

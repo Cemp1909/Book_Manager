@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: book-manager-api
+    runtime: node
+    plan: free
+    rootDir: api
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TNS_ADMIN
+        value: /opt/render/project/src/api/wallet
+      - key: ORACLE_USER
+        sync: false
+      - key: ORACLE_PASSWORD
+        sync: false
+      - key: ORACLE_CONNECT_STRING
+        sync: false
+      - key: ORACLE_POOL_MIN
+        value: "1"
+      - key: ORACLE_POOL_MAX
+        value: "8"
+      - key: ORACLE_POOL_INCREMENT
+        value: "1"
+      - key: ORACLE_WALLET_TGZ_BASE64
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
