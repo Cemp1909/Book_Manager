@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/colegios/pantallas/pantalla_colegios.dart';
 import 'package:book_manager/caracteristicas/combos/pantallas/pantalla_combos.dart';
+import 'package:book_manager/caracteristicas/devoluciones/pantallas/pantalla_devoluciones.dart';
 import 'package:book_manager/caracteristicas/estadisticas/pantallas/pantalla_estadisticas.dart';
 import 'package:book_manager/caracteristicas/historial/pantallas/pantalla_historial.dart';
 import 'package:book_manager/caracteristicas/inicio/componentes/base_inicio_rol.dart';
@@ -136,6 +137,15 @@ class PantallaInicioAdministrador extends StatelessWidget {
             ),
             screen:
                 DispatchesScreen(canDispatchOrders: true, currentUser: user),
+          ),
+          const ItemNavegacionRol(
+            title: 'Devoluciones',
+            destination: NavigationDestination(
+              icon: Icon(Icons.assignment_return_outlined),
+              selectedIcon: Icon(Icons.assignment_return),
+              label: 'Devoluciones',
+            ),
+            screen: ReturnsScreen(),
           ),
           ItemNavegacionRol(
             title: 'Usuarios',

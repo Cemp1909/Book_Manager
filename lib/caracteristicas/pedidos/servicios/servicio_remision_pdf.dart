@@ -1,10 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:book_manager/datos/modelos/configuracion_empresa.dart';
 import 'package:book_manager/datos/modelos/pedido_app.dart';
+import 'package:book_manager/caracteristicas/pedidos/servicios/descarga_pdf_stub.dart'
+    if (dart.library.html) 'package:book_manager/caracteristicas/pedidos/servicios/descarga_pdf_web.dart';
 import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 class DispatchPdfService {
   DispatchPdfService._();
@@ -52,7 +53,7 @@ class DispatchPdfService {
     required CompanySettings settings,
   }) async {
     final bytes = await buildDispatchGuide(order: order, settings: settings);
-    await Printing.sharePdf(
+    await downloadPdfBytes(
       bytes: bytes,
       filename: 'remision_${order.id}.pdf',
     );

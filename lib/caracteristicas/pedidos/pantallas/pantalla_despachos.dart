@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/actividad_app.dart';
 import 'package:book_manager/datos/modelos/bodega_inventario.dart';
+import 'package:book_manager/datos/modelos/cliente_escolar.dart';
 import 'package:book_manager/datos/modelos/devolucion_app.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
 import 'package:book_manager/datos/modelos/pedido_app.dart';
@@ -10,6 +11,7 @@ import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_
 import 'package:book_manager/caracteristicas/pedidos/componentes/hoja_detalle_pedido.dart';
 import 'package:book_manager/caracteristicas/pedidos/servicios/servicio_remision_pdf.dart';
 import 'package:book_manager/compartido/servicios/servicio_datos_temporales.dart';
+import 'package:book_manager/compartido/servicios/servicio_contacto.dart';
 import 'package:book_manager/compartido/servicios/servicio_formato_moneda.dart';
 import 'package:book_manager/compartido/servicios/servicio_historial.dart';
 import 'package:book_manager/compartido/servicios/servicio_mapas.dart';
@@ -106,11 +108,10 @@ class DispatchesScreen extends StatelessWidget {
     AppOrder order,
   ) async {
     try {
-      await DispatchPdfService.instance.shareDispatchGuide(
-        order: order,
-        settings: TemporaryDataService.instance.settings,
+      await TemporaryDataService.instance.markRemissionGenerated(
+        order.id,
+        user: currentUser,
       );
-      await TemporaryDataService.instance.markRemissionGenerated(order.id);
       await ActivityLogService.instance.record(
         type: ActivityType.orders,
         title: 'Remision generada',
@@ -119,6 +120,15 @@ class DispatchesScreen extends StatelessWidget {
         entityType: 'pedido',
         entityId: order.id,
         entityName: 'Pedido #${order.id}',
+      );
+      await DispatchPdfService.instance.shareDispatchGuide(
+        order: order,
+        settings: TemporaryDataService.instance.settings,
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Remision descargada: remision_${order.id}.pdf')),
       );
     } catch (error) {
       if (!context.mounted) return;
@@ -869,6 +879,16 @@ class _DispatchCard extends StatelessWidget {
                           icon: const Icon(Icons.map_outlined),
                           label: const Text('Mapa'),
                         ),
+                        OutlinedButton.icon(
+                          onPressed: () => _callSchool(context, order),
+                          icon: const Icon(Icons.phone_outlined),
+                          label: const Text('Llamar'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _messageSchool(context, order),
+                          icon: const Icon(Icons.chat_outlined),
+                          label: const Text('WhatsApp'),
+                        ),
                         if (onReturn != null)
                           OutlinedButton.icon(
                             onPressed: onReturn,
@@ -892,10 +912,62 @@ class _DispatchCard extends StatelessWidget {
 }
 
 String? _cityNameForOrder(AppOrder order) {
+  final school = _schoolForOrder(order);
+  if (school == null) return null;
+
+  return TemporaryDataService.instance.cityById(school.cityId)?.name;
+}
+
+Future<void> _callSchool(BuildContext context, AppOrder order) async {
+  final phone = _phoneForOrder(order);
+  if (phone == null) {
+    _showContactError(context, 'Este colegio no tiene telefono registrado.');
+    return;
+  }
+
+  final opened = await ContactService.callPhone(phone);
+  if (!opened && context.mounted) {
+    _showContactError(context, 'No se pudo iniciar la llamada.');
+  }
+}
+
+Future<void> _messageSchool(BuildContext context, AppOrder order) async {
+  final phone = _phoneForOrder(order);
+  if (phone == null) {
+    _showContactError(context, 'Este colegio no tiene telefono registrado.');
+    return;
+  }
+
+  final settings = TemporaryDataService.instance.settings;
+  final message = 'Hola, somos de ${settings.companyName}. '
+      'Vamos a realizar la entrega del pedido #${order.id} para '
+      '${order.customer}. Por favor confirmar disponibilidad para recibir.';
+
+  final opened = await ContactService.openWhatsApp(
+    phone: phone,
+    message: message,
+  );
+  if (!opened && context.mounted) {
+    _showContactError(context, 'No se pudo abrir WhatsApp.');
+  }
+}
+
+String? _phoneForOrder(AppOrder order) {
+  final phone = _schoolForOrder(order)?.phone.trim();
+  if (phone == null || phone.isEmpty) return null;
+  return phone;
+}
+
+void _showContactError(BuildContext context, String message) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
+SchoolCustomer? _schoolForOrder(AppOrder order) {
   final dataService = TemporaryDataService.instance;
   for (final school in dataService.schools) {
     if (school.name.toLowerCase() == order.customer.toLowerCase()) {
-      return dataService.cityById(school.cityId)?.name;
+      return school;
     }
   }
   return null;

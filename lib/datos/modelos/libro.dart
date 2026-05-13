@@ -6,6 +6,7 @@ class Book {
   final int price;
   final int stock;
   final String genre;
+  final String grade;
   final String description;
   final String coverUrl;
 
@@ -17,6 +18,7 @@ class Book {
     required this.price,
     required this.stock,
     required this.genre,
+    this.grade = 'General',
     required this.description,
     this.coverUrl = '',
   });
@@ -30,6 +32,7 @@ class Book {
       'price': price,
       'stock': stock,
       'genre': genre,
+      'grade': grade,
       'description': description,
       'coverUrl': coverUrl,
     };
@@ -39,15 +42,23 @@ class Book {
     return {
       'titulo': title,
       'isbn': isbn,
-      'grado': '',
+      'grado': grade.trim().isEmpty ? 'General' : grade.trim(),
       'area': genre,
       'stock': stock,
       'codigo_qr': isbn,
       'autor': author,
       'descripcion': description,
       'precio_base': price,
-      'foto_portada': coverUrl,
+      'foto_portada': _coverStorageValue(),
     };
+  }
+
+  String _coverStorageValue() {
+    final cleanCover = coverUrl.trim();
+    if (cleanCover.isEmpty) return 'sin_portada';
+    if (cleanCover.startsWith('data:image')) return 'portada_capturada';
+    if (cleanCover.length > 1000) return 'portada_externa';
+    return cleanCover;
   }
 
   Book copyWith({
@@ -58,6 +69,7 @@ class Book {
     int? price,
     int? stock,
     String? genre,
+    String? grade,
     String? description,
     String? coverUrl,
   }) {
@@ -69,6 +81,7 @@ class Book {
       price: price ?? this.price,
       stock: stock ?? this.stock,
       genre: genre ?? this.genre,
+      grade: grade ?? this.grade,
       description: description ?? this.description,
       coverUrl: coverUrl ?? this.coverUrl,
     );
@@ -83,6 +96,7 @@ class Book {
       price: map['price'] as int,
       stock: map['stock'] as int,
       genre: map['genre'] as String,
+      grade: map['grade'] as String? ?? 'General',
       description: map['description'] as String,
       coverUrl: map['coverUrl'] as String? ?? '',
     );
@@ -106,6 +120,9 @@ class Book {
       price: asInt(map['PRECIO_BASE'] ?? map['precio_base']) ?? 0,
       stock: asInt(map['STOCK'] ?? map['stock']) ?? 0,
       genre: asString(map['AREA'] ?? map['area']),
+      grade: asString(map['GRADO'] ?? map['grado']).trim().isEmpty
+          ? 'General'
+          : asString(map['GRADO'] ?? map['grado']),
       description: asString(map['DESCRIPCION'] ?? map['descripcion']),
       coverUrl: asString(map['FOTO_PORTADA'] ?? map['foto_portada']),
     );

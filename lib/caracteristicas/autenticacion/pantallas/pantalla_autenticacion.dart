@@ -275,7 +275,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 label: const Text('Verificar correo'),
               ),
               TextButton.icon(
-                onPressed: _showResetInfo,
+                onPressed: _isLoading ? null : _showPasswordResetDialog,
                 icon: const Icon(Icons.help_outline),
                 label: const Text('Olvidé mi clave'),
               ),
@@ -513,22 +513,211 @@ class _AuthScreenState extends State<AuthScreen> {
     emailController.dispose();
   }
 
-  void _showResetInfo() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Recuperar clave'),
-        content: const Text(
-          'Las cuentas se guardan en la base de datos. '
-          'Si olvidaste la clave, solicita al administrador actualizar tu usuario.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Entendido'),
-          ),
-        ],
+  Future<void> _showPasswordResetDialog() async {
+    final emailController = TextEditingController(text: _emailController.text);
+    final codeController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final parentContext = context;
+    var sentCode = '';
+    var codeVerified = false;
+    var isSending = false;
+    var isSaving = false;
+    var obscurePassword = true;
+    var obscureConfirmPassword = true;
+
+    final successMessage = await showDialog<String>(
+      context: parentContext,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title: const Text('Recuperar clave'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    enabled: sentCode.isEmpty,
+                    decoration: const InputDecoration(
+                      labelText: 'Correo',
+                      prefixIcon: Icon(Icons.alternate_email),
+                    ),
+                  ),
+                  if (sentCode.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: codeController,
+                      keyboardType: TextInputType.number,
+                      enabled: !codeVerified,
+                      decoration: const InputDecoration(
+                        labelText: 'Codigo recibido',
+                        prefixIcon: Icon(Icons.mark_email_read_outlined),
+                      ),
+                    ),
+                  ],
+                  if (codeVerified) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Nueva clave',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          onPressed: () => setDialogState(() {
+                            obscurePassword = !obscurePassword;
+                          }),
+                          icon: Icon(
+                            obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: confirmPasswordController,
+                      obscureText: obscureConfirmPassword,
+                      decoration: InputDecoration(
+                        labelText: 'Confirmar clave',
+                        prefixIcon: const Icon(Icons.verified_user_outlined),
+                        suffixIcon: IconButton(
+                          onPressed: () => setDialogState(() {
+                            obscureConfirmPassword = !obscureConfirmPassword;
+                          }),
+                          icon: Icon(
+                            obscureConfirmPassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSending || isSaving
+                    ? null
+                    : () => Navigator.pop(dialogContext),
+                child: const Text('Cancelar'),
+              ),
+              if (sentCode.isEmpty)
+                FilledButton(
+                  onPressed: isSending
+                      ? null
+                      : () async {
+                          final email = emailController.text.trim();
+                          final isEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                              .hasMatch(email);
+                          if (!isEmail) {
+                            _showDialogMessage(
+                              parentContext,
+                              'Ingresa un correo valido.',
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isSending = true);
+                          final result = await AuthService.instance
+                              .requestPasswordReset(email: email);
+                          if (!mounted || !dialogContext.mounted) return;
+                          setDialogState(() => isSending = false);
+                          _showDialogMessage(parentContext, result.message);
+                          if (!result.success) return;
+                          setDialogState(() {
+                            sentCode = result.verificationCode ?? '';
+                          });
+                        },
+                  child: isSending
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Enviar codigo'),
+                )
+              else if (!codeVerified)
+                FilledButton(
+                  onPressed: () {
+                    if (codeController.text.trim() != sentCode) {
+                      _showDialogMessage(parentContext, 'Codigo incorrecto.');
+                      return;
+                    }
+                    setDialogState(() => codeVerified = true);
+                  },
+                  child: const Text('Verificar'),
+                )
+              else
+                FilledButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final password = passwordController.text;
+                          if (password.length < 6) {
+                            _showDialogMessage(
+                              parentContext,
+                              'La clave debe tener minimo 6 caracteres.',
+                            );
+                            return;
+                          }
+                          if (password != confirmPasswordController.text) {
+                            _showDialogMessage(
+                              parentContext,
+                              'Las claves no coinciden.',
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isSaving = true);
+                          final result =
+                              await AuthService.instance.resetPassword(
+                            email: emailController.text.trim(),
+                            password: password,
+                          );
+                          if (!mounted || !dialogContext.mounted) return;
+                          if (!result.success) {
+                            setDialogState(() => isSaving = false);
+                            _showDialogMessage(parentContext, result.message);
+                            return;
+                          }
+                          _emailController.text = emailController.text.trim();
+                          _passwordController.clear();
+                          Navigator.pop(dialogContext, result.message);
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Guardar clave'),
+                ),
+            ],
+          );
+        },
       ),
+    );
+
+    if (mounted && successMessage != null) {
+      _showDialogMessage(context, successMessage);
+    }
+
+    emailController.dispose();
+    codeController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+  }
+
+  void _showDialogMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

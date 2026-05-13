@@ -270,6 +270,35 @@ export function buildDomainRoutes() {
             throw new HttpError(400, 'La remision requiere pedido o despacho.');
           }
 
+          const existingRemissionId = await remissionIdForDispatch(
+            connection,
+            dispatchId,
+          );
+          if (existingRemissionId != null) {
+            await connection.execute(
+              `
+              UPDATE remisiones
+              SET numero = :remissionNumber,
+                  fecha_generacion = CURRENT_TIMESTAMP,
+                  id_usuario = :userId,
+                  archivo_pdf = COALESCE(:pdfFile, archivo_pdf),
+                  estado = :remissionStatus
+              WHERE id_remision = :remissionId
+              `,
+              {
+                remissionId: existingRemissionId,
+                remissionNumber: textOrDefault(
+                  remission.number,
+                  `REM-${Date.now()}`,
+                ),
+                userId: integerOrNull(remission.userId),
+                pdfFile: textOrDefault(remission.file, 'sin_archivo_pdf'),
+                remissionStatus: textOrDefault(remission.status, 'Generada'),
+              },
+            );
+            return existingRemissionId;
+          }
+
           return insertReturningId(
             connection,
             `
@@ -283,20 +312,23 @@ export function buildDomainRoutes() {
             )
             VALUES (
               :dispatchId,
-              :number,
+              :remissionNumber,
               CURRENT_TIMESTAMP,
               :userId,
-              :file,
-              :status
+              :pdfFile,
+              :remissionStatus
             )
             RETURNING id_remision INTO :newId
             `,
             {
               dispatchId,
-              number: textOrDefault(remission.number, `REM-${Date.now()}`),
+              remissionNumber: textOrDefault(
+                remission.number,
+                `REM-${Date.now()}`,
+              ),
               userId: integerOrNull(remission.userId),
-              file: textOrNull(remission.file),
-              status: textOrDefault(remission.status, 'Generada'),
+              pdfFile: textOrDefault(remission.file, 'sin_archivo_pdf'),
+              remissionStatus: textOrDefault(remission.status, 'Generada'),
             },
           );
         }),
@@ -497,6 +529,20 @@ async function dispatchIdForOrder(connection, orderId) {
     { orderId },
   );
   return result.rows[0]?.ID_DESPACHO ?? null;
+}
+
+async function remissionIdForDispatch(connection, dispatchId) {
+  const result = await connection.execute(
+    `
+    SELECT id_remision
+    FROM remisiones
+    WHERE id_despacho = :dispatchId
+    ORDER BY id_remision DESC
+    FETCH FIRST 1 ROW ONLY
+    `,
+    { dispatchId },
+  );
+  return result.rows[0]?.ID_REMISION ?? null;
 }
 
 async function insertDispatch(connection, dispatch) {

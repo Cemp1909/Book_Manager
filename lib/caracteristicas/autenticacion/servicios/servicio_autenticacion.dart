@@ -210,6 +210,82 @@ class AuthService {
     );
   }
 
+  Future<AuthResult> requestPasswordReset({
+    required String email,
+  }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final account = await _findAccount(normalizedEmail);
+    if (account == null) {
+      return const AuthResult(
+        success: false,
+        message: 'No se encontro una cuenta con ese correo.',
+      );
+    }
+
+    final verificationCode = _generateVerificationCode(normalizedEmail);
+    try {
+      await VerificationEmailService.instance.sendCode(
+        email: normalizedEmail,
+        code: verificationCode,
+      );
+    } on ApiException catch (error) {
+      return AuthResult(success: false, message: error.message);
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'No se pudo enviar el codigo de recuperacion.',
+      );
+    }
+
+    return AuthResult(
+      success: true,
+      message: 'Enviamos un codigo de recuperacion al correo.',
+      verificationCode: verificationCode,
+    );
+  }
+
+  Future<AuthResult> resetPassword({
+    required String email,
+    required String password,
+  }) async {
+    if (password.length < 6) {
+      return const AuthResult(
+        success: false,
+        message: 'La clave debe tener minimo 6 caracteres.',
+      );
+    }
+
+    final account = await _findAccount(email);
+    if (account == null) {
+      return const AuthResult(
+        success: false,
+        message: 'No se encontro la cuenta.',
+      );
+    }
+
+    try {
+      await _api.put('/api/v1/usuarios/${account.id}', {
+        'nombre': account.user.name,
+        'correo': account.user.email,
+        'contrasena': password,
+        'estado':
+            _statusToStorage(account.user.status, account.verificationCode),
+      });
+    } on ApiException catch (error) {
+      return AuthResult(success: false, message: error.message);
+    } catch (_) {
+      return const AuthResult(
+        success: false,
+        message: 'No se pudo actualizar la clave.',
+      );
+    }
+
+    return const AuthResult(
+      success: true,
+      message: 'Clave actualizada. Ya puedes iniciar sesion.',
+    );
+  }
+
   Future<AuthResult> approveUser(String email) async {
     return _setUserStatus(email, AccountStatus.active, 'Usuario aprobado.');
   }

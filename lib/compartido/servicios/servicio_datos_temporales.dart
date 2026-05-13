@@ -67,8 +67,8 @@ class TemporaryDataService extends ChangeNotifier {
     return _generatedRemissions.contains(orderId);
   }
 
-  Future<void> markRemissionGenerated(String orderId) async {
-    await _persistRemission(orderId);
+  Future<void> markRemissionGenerated(String orderId, {AppUser? user}) async {
+    await _persistRemission(orderId, user: user);
     _generatedRemissions.add(orderId);
     notifyListeners();
   }
@@ -660,10 +660,11 @@ class TemporaryDataService extends ChangeNotifier {
       ..addAll(books);
   }
 
-  Future<void> _persistRemission(String orderId) async {
+  Future<void> _persistRemission(String orderId, {AppUser? user}) async {
     await _api.post('/api/v1/domain/remissions', {
       'orderId': _intValue(orderId),
       'number': 'REM-$orderId',
+      'userId': await _userIdFor(user),
       'status': 'Generada',
     });
   }

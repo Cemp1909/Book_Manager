@@ -1,8 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:book_manager/aplicacion/tema/tema_app.dart';
 import 'package:book_manager/datos/modelos/actividad_app.dart';
 import 'package:book_manager/datos/modelos/libro.dart';
@@ -10,6 +7,19 @@ import 'package:book_manager/datos/modelos/usuario_app.dart';
 import 'package:book_manager/caracteristicas/inventario/componentes/tarjeta_libro.dart';
 import 'package:book_manager/caracteristicas/inventario/servicios/servicio_base_datos.dart';
 import 'package:book_manager/compartido/servicios/servicio_historial.dart';
+
+const _bookGradeOptions = [
+  'Parvulos',
+  'Prejardin',
+  'Jardin',
+  'Transicion',
+  'Primero',
+  'Segundo',
+  'Tercero',
+  'Cuarto',
+  'Quinto',
+  'General',
+];
 
 class AddBookScreen extends StatefulWidget {
   final Book? book;
@@ -40,6 +50,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
   final _stockController = TextEditingController();
   final _genreController = TextEditingController();
   final _descriptionController = TextEditingController();
+  String _selectedGrade = 'General';
   String _coverUrl = '';
   bool _isSaving = false;
 
@@ -53,10 +64,12 @@ class _AddBookScreenState extends State<AddBookScreen> {
     if (book != null) {
       _titleController.text = book.title;
       _authorController.text = book.author;
-      _isbnController.text = book.isbn;
-      _priceController.text = book.price.toString();
+      _isbnController.text = _formatIsbn(book.isbn);
+      _priceController.text = _formatThousands(book.price);
       _stockController.text = book.stock.toString();
       _genreController.text = book.genre;
+      _selectedGrade =
+          _bookGradeOptions.contains(book.grade) ? book.grade : 'General';
       _descriptionController.text = book.description;
       _coverUrl = book.coverUrl;
       return;
@@ -64,7 +77,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
 
     final initialIsbn = widget.initialIsbn?.trim();
     if (initialIsbn != null) {
-      _isbnController.text = initialIsbn;
+      _isbnController.text = _formatIsbn(initialIsbn);
     }
   }
 
@@ -90,27 +103,12 @@ class _AddBookScreenState extends State<AddBookScreen> {
                   child: BookCoverImage(coverUrl: _coverUrl, iconSize: 44),
                 ),
                 const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _isSaving ? null : _takeBookPhoto,
-                      icon: const Icon(Icons.photo_camera_outlined),
-                      label: const Text('Tomar foto'),
-                    ),
-                    if (_coverUrl.isNotEmpty)
-                      OutlinedButton.icon(
-                        onPressed: _isSaving
-                            ? null
-                            : () => setState(() {
-                                  _coverUrl = '';
-                                }),
-                        icon: const Icon(Icons.close),
-                        label: const Text('Quitar'),
-                      ),
-                  ],
+                const Text(
+                  'Portada no requerida',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
@@ -167,6 +165,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _isbnController,
+            keyboardType: TextInputType.text,
+            inputFormatters: const [_IsbnInputFormatter()],
             decoration: const InputDecoration(
               labelText: 'ISBN',
               border: OutlineInputBorder(),
@@ -176,10 +176,31 @@ class _AddBookScreenState extends State<AddBookScreen> {
               if (value == null || value.trim().isEmpty) {
                 return 'Por favor ingresa el ISBN';
               }
-              if (value.trim().length < 8) {
+              if (_cleanIsbn(value).length < 8) {
                 return 'Ingresa un ISBN válido';
               }
               return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedGrade,
+            decoration: const InputDecoration(
+              labelText: 'Grado',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.school_outlined),
+            ),
+            items: _bookGradeOptions
+                .map(
+                  (grade) => DropdownMenuItem(
+                    value: grade,
+                    child: Text(grade),
+                  ),
+                )
+                .toList(),
+            onChanged: (grade) {
+              if (grade == null) return;
+              setState(() => _selectedGrade = grade);
             },
           ),
           const SizedBox(height: 16),
@@ -194,12 +215,12 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     prefixIcon: Icon(Icons.attach_money),
                   ),
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  inputFormatters: const [_ThousandsInputFormatter()],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Ingresa el precio';
                     }
-                    final price = int.tryParse(value);
+                    final price = _parseFormattedInt(value);
                     if (price == null || price < 0) {
                       return 'Precio inválido';
                     }
@@ -323,10 +344,11 @@ class _AddBookScreenState extends State<AddBookScreen> {
         id: widget.book?.id,
         title: _titleController.text.trim(),
         author: _authorController.text.trim(),
-        isbn: _isbnController.text.trim(),
-        price: int.parse(_priceController.text),
+        isbn: _formatIsbn(_isbnController.text),
+        price: _parseFormattedInt(_priceController.text) ?? 0,
         stock: int.parse(_stockController.text),
         genre: _genreController.text.trim(),
+        grade: _selectedGrade,
         description: _descriptionController.text.trim(),
         coverUrl: _coverUrl,
       );
@@ -394,32 +416,9 @@ class _AddBookScreenState extends State<AddBookScreen> {
     _genreController.clear();
     _descriptionController.clear();
     setState(() {
+      _selectedGrade = 'General';
       _coverUrl = '';
     });
-  }
-
-  Future<void> _takeBookPhoto() async {
-    try {
-      final pickedImage = await ImagePicker().pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1200,
-        imageQuality: 78,
-      );
-      if (pickedImage == null) return;
-
-      final bytes = await pickedImage.readAsBytes();
-      final mimeType = pickedImage.mimeType ?? 'image/jpeg';
-      if (!mounted) return;
-
-      setState(() {
-        _coverUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
-      });
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo tomar la foto: $error')),
-      );
-    }
   }
 
   @override
@@ -433,4 +432,88 @@ class _AddBookScreenState extends State<AddBookScreen> {
     _descriptionController.dispose();
     super.dispose();
   }
+}
+
+class _IsbnInputFormatter extends TextInputFormatter {
+  const _IsbnInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final formatted = _formatIsbn(newValue.text);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+class _ThousandsInputFormatter extends TextInputFormatter {
+  const _ThousandsInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final formatted = _formatThousands(newValue.text);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+String _formatIsbn(String value) {
+  final clean = _cleanIsbn(value);
+  if (clean.length <= 3) return clean;
+
+  final groups = clean.startsWith('978958') || clean.startsWith('979958')
+      ? const [3, 3, 2, 4, 1]
+      : clean.length <= 10
+          ? const [1, 3, 5, 1]
+          : const [3, 1, 5, 3, 1];
+  return _splitGroups(clean, groups);
+}
+
+String _cleanIsbn(String value) {
+  final clean = value.toUpperCase().replaceAll(RegExp(r'[^0-9X]'), '');
+  return clean.length <= 13 ? clean : clean.substring(0, 13);
+}
+
+String _splitGroups(String value, List<int> groups) {
+  final parts = <String>[];
+  var start = 0;
+  for (final groupSize in groups) {
+    if (start >= value.length) break;
+    final targetEnd = start + groupSize;
+    final end = targetEnd > value.length ? value.length : targetEnd;
+    parts.add(value.substring(start, end));
+    start = end;
+  }
+  if (start < value.length) parts.add(value.substring(start));
+  return parts.where((part) => part.isNotEmpty).join('-');
+}
+
+String _formatThousands(Object value) {
+  final digits = value.toString().replaceAll(RegExp(r'[^0-9]'), '');
+  if (digits.isEmpty) return '';
+
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    final remaining = digits.length - index;
+    buffer.write(digits[index]);
+    if (remaining > 1 && remaining % 3 == 1) {
+      buffer.write('.');
+    }
+  }
+  return buffer.toString();
+}
+
+int? _parseFormattedInt(String value) {
+  final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+  if (digits.isEmpty) return null;
+  return int.tryParse(digits);
 }
