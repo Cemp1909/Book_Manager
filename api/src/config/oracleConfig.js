@@ -1,6 +1,7 @@
 const defaultPoolMin = 1;
 const defaultPoolMax = 8;
 const defaultPoolIncrement = 1;
+const defaultQueueTimeout = 120000;
 
 export function isOracleConfigured(env = process.env) {
   return requiredOracleEnvKeys.every((key) => Boolean(env[key]));
@@ -22,6 +23,7 @@ export function getOracleConfig(env = process.env) {
       env.ORACLE_POOL_INCREMENT,
       defaultPoolIncrement,
     ),
+    queueTimeout: parsePoolNumber(env.ORACLE_QUEUE_TIMEOUT, defaultQueueTimeout),
   };
 
   if (env.TNS_ADMIN) {

@@ -23,6 +23,8 @@ services:
         value: "8"
       - key: ORACLE_POOL_INCREMENT
         value: "1"
+      - key: ORACLE_QUEUE_TIMEOUT
+        value: "120000"
       - key: ORACLE_WALLET_TGZ_BASE64
         sync: false
       - key: SMTP_HOST
